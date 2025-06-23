@@ -1,0 +1,65 @@
+# Java build output
+*.class
+
+# Packaged applications
+*.jar
+*.war
+*.ear
+
+# Environment variables file
+# 包含了密码、API密钥等敏感信息，必须忽略！
+../pulse-hub/.env
+
+# Maven build directory
+target/
+
+# Maven temporary files
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# IDE and editor specific files
+.idea/
+*.iml
+*.iws
+out/
+.vscode/
+
+# User-specific rules
+.cursorrules
+
+# Python cache
+__pycache__/
+
+# Log files
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Added by Task Master AI
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+node_modules/
+# Environment variables
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
