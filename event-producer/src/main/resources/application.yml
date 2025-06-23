@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: event-producer
+  kafka:
+    producer:
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Use Spring's JsonSerializer to automatically handle UserActivityEvent -> JSON
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+server:
+  port: 8082 # Use a different port to avoid conflicts
+
+application:
+  kafka:
+    topics:
+      user-activity: user-activity-events 

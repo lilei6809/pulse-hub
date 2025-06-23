@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Inherit defaults from the parent project -->
+    <parent>
+        <groupId>com.pulsehub</groupId>
+        <artifactId>pulse-hub-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>common</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>common</name>
+    <description>Shared data models and utilities for PulseHub</description>
+
+    <dependencies>
+        <!-- Add any dependencies needed by shared models, e.g., validation annotations -->
+        <!-- For now, it might be empty -->
+        <!-- Lombok for reducing boilerplate code -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional> <!-- Provided at compile time, not needed at runtime -->
+        </dependency>
+    </dependencies>
+
+</project> 

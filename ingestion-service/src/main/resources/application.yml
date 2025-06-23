@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: ingestion-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pulsehub
+    username: pulsehub
+    password: pulsehub
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: ingestion-service-group # Added -group suffix for clarity
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.pulsehub.common.model
+        # This property is important to map the JSON to the correct object without type headers
+        spring.json.use.type.headers: false 
+        # Specifies the target type for the value deserializer
+        spring.json.value.default.type: com.pulsehub.common.model.UserActivityEvent
+
+server:
+  port: 8081 # Changed to 8081 to avoid potential conflict with other services like Kafka UI on 8080
+
+application:
+  kafka:
+    topics:
+      user-activity: user-activity-events 
