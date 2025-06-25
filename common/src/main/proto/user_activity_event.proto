@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.pulsehub.common.proto;
+
+option java_package = "com.pulsehub.common.proto";
+option java_multiple_files = true;
+
+message UserActivityEvent {
+  string event_id = 1;
+  string user_id = 2;
+  string session_id = 3;
+  string event_type = 4;
+  int64 timestamp = 5;
+  string source_ip = 6;
+  string user_agent = 7;
+  string page_url = 8;
+  string product_id = 9;
+  string category_id = 10;
+  double price = 11;
+  int32 quantity = 12;
+} 
