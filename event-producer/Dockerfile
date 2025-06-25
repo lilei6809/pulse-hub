@@ -1,14 +1,21 @@
-# Use an official OpenJDK runtime as a parent image, Alpine is a lightweight Linux distribution
-FROM eclipse-temurin:21-jre-alpine
-
-# Set the working directory in the container
+# ==== 构建阶段 ====
+FROM maven:3.9.6-eclipse-temurin-21 AS builder
 WORKDIR /app
 
-# Copy the fat jar into the container at /app
-COPY target/event-producer-0.1.0-SNAPSHOT.jar app.jar
+# 可选：加入 Maven settings.xml 加速（阿里云镜像）
+# COPY ../../settings.xml /root/.m2/settings.xml
 
-# Make port 8082 available to the world outside this container
+COPY . .
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean install -pl event-producer -am -DskipTests
+
+# ==== 运行阶段 ====
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+COPY --from=builder /app/event-producer/target/*.jar app.jar
+
 EXPOSE 8082
 
-# Run the jar file
-ENTRYPOINT ["java", "-jar", "app.jar"] 
+ENTRYPOINT ["java", "-jar", "app.jar"]

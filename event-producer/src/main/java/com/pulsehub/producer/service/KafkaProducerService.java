@@ -1,6 +1,6 @@
 package com.pulsehub.producer.service;
 
-import com.pulsehub.common.model.UserActivityEvent;
+import com.pulsehub.common.proto.UserActivityEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

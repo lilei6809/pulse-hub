@@ -43,10 +43,10 @@ This methodology ensures that every piece of code we write is tied to a specific
 The objective of the MVP is **not** to deliver a feature-rich product, but to **establish a foundational, event-driven architecture** that is stable, observable, and ready for future extension.
 
 **Success of the MVP will be measured by these criteria:**
-- [ ] **End-to-End Data Flow:** A test event can be produced, published to Kafka, consumed by the `ingestion-service`, and correctly persisted in the PostgreSQL database.
-- [ ] **"One-Command" Launch:** The entire stack (services, Kafka, database) can be reliably launched with a single `docker-compose up` command.
-- [ ] **Architectural Readiness:** The codebase is structured as a multi-module Maven project, making it easy to add new services and shared libraries in subsequent phases.
-- [ ] **Basic Observability:** Service logs are accessible and provide clear information about the events being processed.
+- [x] **End-to-End Data Flow:** A test event can be produced, published to Kafka, consumed by the `ingestion-service`, and correctly persisted in the PostgreSQL database.
+- [x] **"One-Command" Launch:** The entire stack (services, Kafka, database) can be reliably launched with a single `docker-compose up` command.
+- [x] **Architectural Readiness:** The codebase is structured as a multi-module Maven project, making it easy to add new services and shared libraries in subsequent phases.
+- [x] **Basic Observability:** Service logs are accessible and provide clear information about the events being processed.
 
 ### 3.2. MVP Architecture Diagram
 
@@ -69,32 +69,65 @@ graph TD
 This plan details the one-story-point tasks required to build the MVP.
 
 #### 3.3.1. Project Setup
-- [ ] Initialize a multi-module Maven project structure (`pulse-hub-parent`, `ingestion-service`, `event-producer`).
-- [ ] Create the root `pom.xml` to manage dependencies for all sub-modules.
+- [x] Initialize a multi-module Maven project structure (`pulse-hub-parent`, `ingestion-service`, `event-producer`).
+- [x] Create the root `pom.xml` to manage dependencies for all sub-modules.
 
 #### 3.3.2. Infrastructure as Code (Docker)
-- [ ] Create a `docker-compose.yml` file in the project root.
-- [ ] Add service definitions for `kafka` and `zookeeper`.
-- [ ] Add a service definition for `postgres`.
-- [ ] Configure networking and volumes to ensure persistence and communication.
+- [x] Create a `docker-compose.yml` file in the project root.
+- [x] Add service definitions for `kafka` and `zookeeper`.
+- [x] Add a service definition for `postgres`.
+- [x] Configure networking and volumes to ensure persistence and communication.
 
 #### 3.3.3. Core Data Model
-- [ ] Define the `UserActivityEvent.java` POJO in a shared module.
-- [ ] Create a corresponding JPA Entity `TrackedEvent.java` in the ingestion service.
+- [x] Define the `UserActivityEvent.java` POJO in a shared module.
+- [x] Create a corresponding JPA Entity `TrackedEvent.java` in the ingestion service.
 
 #### 3.3.4. Ingestion Service (`ingestion-service`)
-- [ ] Set up the Spring Boot application with necessary dependencies (`web`, `data-jpa`, `kafka`, `postgres-driver`).
-- [ ] Configure `application.yml` for database and Kafka connections.
-- [ ] Implement the `KafkaConsumerService` and the `TrackedEventRepository`.
-- [ ] Implement the core logic to consume, convert, and save events.
+- [x] Set up the Spring Boot application with necessary dependencies (`web`, `data-jpa`, `kafka`, `postgres-driver`).
+- [x] Configure `application.yml` for database and Kafka connections.
+- [x] Implement the `KafkaConsumerService` and the `TrackedEventRepository`.
+- [x] Implement the core logic to consume, convert, and save events.
 
 #### 3.3.5. Event Producer (`event-producer`)
-- [ ] Set up a simple application to produce `UserActivityEvent` objects.
-- [ ] Configure its Kafka connection and implement the sending logic.
+- [x] Set up a simple application to produce `UserActivityEvent` objects.
+- [x] Configure its Kafka connection and implement the sending logic.
 
 #### 3.3.6. Documentation & Finalization
-- [ ] Update the main `README.md` with instructions on how to run the MVP.
-- [ ] Perform a full end-to-end test to verify data flow.
+- [x] Update the main `README.md` with instructions on how to run the MVP.
+- [x] Perform a full end-to-end test to verify data flow.
 
 ---
-*Instructions: This SOW.md file should be updated as tasks are completed. Check off the boxes to reflect the current progress of the project.* 
+*Instructions: This SOW.md file should be updated as tasks are completed. Check off the boxes to reflect the current progress of the project.*
+
+## 4. Phase 2: Iterative Development
+
+This phase marks the transition from foundational setup to feature-driven development. Work will be organized into "tickets," simulating an agile sprint workflow.
+
+### 4.1. Ticket #8: Implement User Profile Service
+
+- **Goal:** To create a new `profile-service` responsible for managing unique user profiles, shifting the platform from being event-centric to user-centric.
+
+#### 4.1.1. `profile-service` Standalone Development
+- [x] **Structure**: Create the `profile-service` Maven module and directory structure.
+- [x] **Configuration**: Create `pom.xml` and basic `application.yml`.
+- [x] **Data Layer**: Define the `UserProfile` entity and `UserProfileRepository`.
+- [x] **Business Layer**: Implement the `ProfileService` for core logic.
+- [x] **API Layer**: Create the `ProfileController` to expose REST endpoints.
+- [x] **Containerization**: Create a `Dockerfile` for the service.
+
+#### 4.1.2. System Integration & Verification
+- [ ] **Docker Integration**: Add `profile-service` to `docker-compose.yml` with necessary configurations.
+- [ ] **Build & Launch Verification**:
+    - [ ] Run `mvn clean install` to ensure all modules, including the new service, build successfully.
+    - [ ] Run `docker-compose up --build` to verify the `profile-service` can launch and connect to the database without errors.
+
+#### 4.1.3. `ingestion-service` Enhancement
+- [ ] **HTTP Client Setup**: Configure a `RestTemplate` or `WebClient` bean in `ingestion-service`.
+- [ ] **Profile Check Logic**: In `KafkaConsumerService`, implement logic to call `profile-service`'s `GET /api/v1/profiles/{userId}` endpoint for each incoming event.
+- [ ] **Profile Creation Logic**: If the profile check returns a 404 Not Found, call the `POST /api/v1/profiles` endpoint to create a new user profile.
+
+#### 4.1.4. End-to-End Testing
+- [ ] **Final System Validation**:
+    - [ ] Launch the complete system.
+    - [ ] Monitor logs to confirm `ingestion-service` is correctly calling `profile-service`.
+    - [ ] Query the `user_profiles` table in PostgreSQL to verify that new user profiles are created as expected. 

@@ -1,12 +1,25 @@
-# Use an official OpenJDK runtime as a parent image, Alpine is a lightweight Linux distribution
-FROM eclipse-temurin:21-jre-alpine
+# Stage 1: Build the application with Maven
+FROM maven:3.9.6-eclipse-temurin-21 AS builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the fat jar into the container at /app
-# The jar is built by the spring-boot-maven-plugin
-COPY target/ingestion-service-0.1.0-SNAPSHOT.jar app.jar
+# Copy the entire project context
+COPY . .
+
+# Build the specific module and all its reactor dependencies (-am)
+# This is a robust way to ensure modules are built in the correct order.
+# The --mount flag uses Docker's build cache to persist the .m2 directory,
+# drastically speeding up dependency downloads in subsequent builds.
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean install -pl ingestion-service -am -DskipTests
+
+# Stage 2: Create the final, minimal image
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+
+# Copy the executable JAR from the builder stage
+COPY --from=builder /app/ingestion-service/target/*.jar app.jar
 
 # Make port 8081 available to the world outside this container
 EXPOSE 8081

@@ -1,107 +1,172 @@
-version: '3.8'
-
 services:
   kafka:
-    image: confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION:-7.4.1}
+    image: confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION}
     container_name: kafka
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "${KAFKA_EXTERNAL_PORT:-9092}:${KAFKA_EXTERNAL_PORT:-9092}"
+      - "${KAFKA_INTERNAL_PORT:-29092}:${KAFKA_INTERNAL_PORT:-29092}"
     environment:
+      CLUSTER_ID: ${CLUSTER_ID}
+      KAFKA_BROKER_ID: 1
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
-      KAFKA_LISTENERS: 'PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092,CONTROLLER://kafka:9093'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://host.docker.internal:9092'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT_INTERNAL'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT_INTERNAL'
+      KAFKA_LISTENERS: >-
+        PLAINTEXT_INTERNAL://kafka:${KAFKA_INTERNAL_PORT},
+        PLAINTEXT_EXTERNAL://0.0.0.0:${KAFKA_EXTERNAL_PORT},
+        CONTROLLER://kafka:${KAFKA_CONTROLLER_PORT}
+      KAFKA_ADVERTISED_LISTENERS: >-
+        PLAINTEXT_INTERNAL://kafka:${KAFKA_INTERNAL_PORT},
+        PLAINTEXT_EXTERNAL://localhost:${KAFKA_EXTERNAL_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        PLAINTEXT_INTERNAL:PLAINTEXT,
+        PLAINTEXT_EXTERNAL:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:${KAFKA_CONTROLLER_PORT}'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      CLUSTER_ID: 'yerAGQqhTpq8ZqMQCRQTNQ'
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list || exit 1"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:${KAFKA_INTERNAL_PORT} --list || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:${CONFLUENT_PLATFORM_VERSION:-7.4.1}
+    image: confluentinc/cp-schema-registry:${CONFLUENT_PLATFORM_VERSION}
     container_name: schema-registry
     ports:
-      - "${SCHEMA_REGISTRY_PORT:-8081}:${SCHEMA_REGISTRY_PORT:-8081}"
+      - "${SCHEMA_REGISTRY_EXTERNAL_PORT}:8081"
     depends_on:
       kafka:
         condition: service_healthy
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:29092'
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:${SCHEMA_REGISTRY_PORT:-8081}
-      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${SCHEMA_REGISTRY_PORT:-8081}/subjects || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+    networks:
+      - pulsehub-net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     ports:
-      - "${KAFKA_UI_PORT:-8080}:8080"
-    environment:
-      DYNAMIC_CONFIG_ENABLED: true
-    volumes:
-      - ./config/kafka-ui-config.yml:/etc/kafkaui/dynamic_config.yaml
+      - "${KAFKA_UI_PORT}:8080"
     depends_on:
       kafka:
         condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pulse-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - pulsehub-net
 
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     environment:
-      POSTGRES_USER: pulsehub
-      POSTGRES_PASSWORD: pulsehub
-      POSTGRES_DB: pulsehub
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env
 
   ingestion-service:
     build:
-      context: ./ingestion-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ingestion-service/Dockerfile
     container_name: ingestion-service
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
-      - "8081:8081" # Map the container port to the host
+      - "${INGESTION_SERVICE_PORT}:8081"
     environment:
-      # Override application.yml to use service names within the Docker network
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pulsehub
-      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env
+
+  profile-service:
+    build:
+      context: .
+      dockerfile: profile-service/Dockerfile
+    container_name: profile-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8084
+    ports:
+      - "${PROFILE_SERVICE_PORT}:8084"
+    networks:
+      - pulsehub-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
 
   event-producer:
     build:
-      context: ./event-producer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: event-producer/Dockerfile
     container_name: event-producer
     depends_on:
-      - kafka
-    ports:
-      - "8082:8082" # Map the container port to the host
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
     environment:
-      # Override application.yml to use service names within the Docker network
-      SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: kafka:29092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+    ports:
+      - "${EVENT_PRODUCER_PORT}:8082"
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env
 
 volumes:
   kafka-data:
-  postgres-data: 
+  postgres-data:
+
+networks:
+  pulsehub-net:
+    driver: bridge
