@@ -252,6 +252,7 @@ This implementation plan is derived directly from our `task-master` project mana
     - [ ] **14.2**: Create Repository Interfaces
     - [ ] **14.3**: Implement Database Migration Scripts
     - [ ] **14.4**: Implement Custom Query Methods
+    - [ ] **14.5**: Implement Error Handling
 
 - [ ] **Task 15: Implement Cold Path Persistence Service**
   - **Description**: Create a service to persist raw event data to PostgreSQL for long-term storage and future analytics as part of the cold path architecture.
@@ -314,6 +315,29 @@ This implementation plan is derived directly from our `task-master` project mana
     - [ ] **21.4**: Develop assertion and validation framework
     - [ ] **21.5**: Implement performance testing suite
     - [ ] **21.6**: Develop chaos testing capabilities
+
+### 5.4. Ticket #15: Implement Spring Boot Admin for Centralized Monitoring
+
+- **Goal**: To establish a centralized monitoring dashboard for all microservices within the PulseHub ecosystem, enhancing observability and simplifying operational management.
+- **Priority**: High
+- **Dependencies**: Successful implementation of Actuator in participating services (e.g., as part of Task 7.5).
+
+#### 5.4.1. `admin-server` Module Setup
+- [ ] **Structure**: Create a new Maven module named `admin-server`.
+- [ ] **Dependencies**: Add `spring-boot-admin-starter-server` and `spring-boot-starter-web` to its `pom.xml`.
+- [ ] **Configuration**: In `AdminServerApplication.java`, add the `@EnableAdminServer` annotation.
+- [ ] **Application Properties**: Configure a unique server port (e.g., 9090) in `application.yml` to avoid conflicts.
+- [ ] **Containerization**: Create a `Dockerfile` for the `admin-server`.
+
+#### 5.4.2. Client Integration
+- [ ] **Add Dependencies**: Add the `spring-boot-admin-starter-client` dependency to the `pom.xml` of all existing and future microservices (e.g., `profile-service`, `ingestion-service`, `config-server`).
+- [ ] **Configure Clients**: In the `application.yml` of each microservice, configure the `spring.boot.admin.client.url` to point to the `admin-server` (e.g., `http://admin-server:9090`).
+- [ ] **Expose Actuator Endpoints**: Ensure the `management.endpoints.web.exposure.include` property in each client's configuration includes not just `health`, but `*` to provide the Admin UI with full access to all actuator details.
+
+#### 5.4.3. Docker Compose Integration
+- [ ] **Add Service**: Add the new `admin-server` to the main `docker-compose.yml` file.
+- [ ] **Configure Networking**: Ensure it is part of the `pulsehub-network` and can be reached by other services via its service name.
+- [ ] **Verification**: Launch the entire stack with `docker-compose up --build` and verify that all services successfully register themselves with the Spring Boot Admin dashboard, accessible at `http://localhost:9090`.
 
 ---
 **Note:** This SOW is a living document. Please update the checkboxes as tasks are completed to reflect the real-time progress of the project. 

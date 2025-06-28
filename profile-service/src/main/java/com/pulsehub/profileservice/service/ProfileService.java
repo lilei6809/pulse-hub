@@ -2,6 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.entity.UserProfile;
 import com.pulsehub.profileservice.repository.UserProfileRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -36,13 +37,28 @@ public class ProfileService {
         return userProfileRepository.save(newProfile);
     }
 
+    public UserProfile createProfile(UserProfile userProfile) {
+        return userProfileRepository.save(userProfile);
+    }
+
     /**
-     * Finds a user profile by its ID.
+     * 根据用户ID获取用户画像。
+     * 这个方法现在返回一个Optional，以优雅地处理用户不存在的情况。
+     * 当数据库中找不到用户时，方法会返回一个空的Optional，
+     * Spring的缓存机制会将这个“空”结果缓存起来，以防止缓存穿透。
      *
-     * @param userId The ID of the user to find.
-     * @return An Optional containing the UserProfile if found, or an empty Optional otherwise.
+     * @param userId 要查询的用户ID
+     * @return 包含用户画像的Optional，如果不存在则为空
      */
-    public Optional<UserProfile> findProfileById(String userId) {
+    @Cacheable(value = "user-profiles", key = "#userId")
+    public Optional<UserProfile> getProfileByUserId(String userId) {
+        // 2. 直接返回仓库查询的结果，它本身就是一个Optional
         return userProfileRepository.findById(userId);
+    }
+
+
+
+    public boolean profileExists(String userId) {
+        return userProfileRepository.existsById(userId);
     }
 } 
