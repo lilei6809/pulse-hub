@@ -10,14 +10,31 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.List;
 
 /**
- * 用户画像服务类 - 提供多种缓存策略
+ * 🎯 Profile Service - 缓存配置选择机制演示
  * 
- * 本服务演示了不同的缓存配置策略：
- * 1. 默认策略：缓存所有结果，包括空值
- * 2. 选择性策略：只缓存存在的用户数据
- * 3. 更新策略：数据更新时自动管理缓存
+ * 本类展示了如何在业务代码中正确使用不同的缓存配置。
+ * Spring Cache通过@Cacheable注解的value参数来匹配CacheConfig中的配置。
+ * 
+ * 【配置匹配机制】
+ * 1. Spring启动时加载CacheConfig，注册所有缓存配置到CacheManager
+ * 2. 运行时遇到@Cacheable注解，提取value参数作为cacheName
+ * 3. CacheManager根据cacheName查找对应配置：
+ *    - 找到匹配配置 → 使用专用配置（TTL、空值策略等）
+ *    - 未找到匹配 → 使用默认配置（15分钟TTL，不缓存空值）
+ * 
+ * 【配置注册表映射】
+ * ┌─────────────────────────┬──────────────────┬─────────────────────────┐
+ * │      @Cacheable值       │     配置来源     │        配置特点         │
+ * ├─────────────────────────┼──────────────────┼─────────────────────────┤
+ * │ "crm-user-profiles"     │ 专用配置         │ 10分钟TTL, 不缓存空值   │
+ * │ "analytics-user-profiles"│ 专用配置        │ 4小时TTL, 缓存空值      │
+ * │ "user-behaviors"        │ 专用配置         │ 30分钟TTL, 不缓存空值   │
+ * │ "system-configs"        │ 专用配置         │ 24小时TTL, 缓存所有值   │
+ * │ "any-other-name"        │ 默认配置         │ 15分钟TTL, 不缓存空值   │
+ * └─────────────────────────┴──────────────────┴─────────────────────────┘
  */
 @Service
 @RequiredArgsConstructor
@@ -87,53 +104,54 @@ public class ProfileService {
     }
 
     /**
-     * 🎯 CRM/CDP 专用：销售和营销场景的用户画像查询
+     * 🎯 CRM场景专用方法
      * 
-     * 【业务背景】
-     * - 销售人员需要立即看到新录入的客户信息
-     * - 营销系统需要实时响应用户行为变化
-     * - 客服需要最新的客户状态进行支持
+     * 【配置匹配说明】
+     * value = "crm-user-profiles" 
+     * ↓ 匹配过程
+     * CacheManager.getCache("crm-user-profiles")
+     * ↓ 查找配置注册表
+     * 找到：builder.withCacheConfiguration("crm-user-profiles", ...)
+     * ↓ 应用配置
+     * TTL=10分钟, disableCachingNullValues(), prefix="pulsehub:crm:"
      * 
-     * 【缓存策略】
-     * - 不缓存空值：确保新用户立即可见
-     * - 短TTL：平衡性能和数据新鲜度
-     * - 条件缓存：只为有效用户启用缓存
+     * 【业务价值】
+     * - 销售人员查询客户信息
+     * - 客服处理客户咨询
+     * - 营销活动实时投放
      * 
-     * 【成本效益分析】
-     * - 优势：提升销售转化率、营销精准度、客服质量
-     * - 成本：增加数据库查询，但在CRM场景下是值得的
-     * 
-     * @param userId 要查询的用户ID
-     * @return 包含用户画像的Optional，针对CRM业务优化
+     * 【配置效果】
+     * - 新用户注册后立即可见（不缓存空值）
+     * - 数据保持10分钟新鲜度
+     * - Redis Key: pulsehub:crm:crm-user-profiles::user123
      */
-    @Cacheable(value = "crm-user-profiles", key = "#userId", 
-               unless = "#result.isEmpty()",
-               condition = "#userId != null && #userId.length() > 0")
-    public Optional<UserProfile> getProfileForCRMOperations(String userId) {
+    @Cacheable(value = "crm-user-profiles", key = "#userId", unless = "#result.isEmpty()")
+    public Optional<UserProfile> getProfileForCRM(String userId) {
         log.info("CRM场景查询用户画像（实时性优先）: {}", userId);
         return userProfileRepository.findById(userId);
     }
 
     /**
-     * 🎯 CRM/CDP 专用：数据分析和报表场景的用户画像查询
+     * 📊 Analytics场景专用方法
      * 
-     * 【业务背景】
-     * - 数据分析师生成定期报表
-     * - 历史数据分析，对实时性要求不高
-     * - 批量数据处理，性能和稳定性更重要
+     * 【配置匹配说明】
+     * value = "analytics-user-profiles"
+     * ↓ 匹配过程
+     * CacheManager.getCache("analytics-user-profiles") 
+     * ↓ 查找配置注册表
+     * 找到：builder.withCacheConfiguration("analytics-user-profiles", ...)
+     * ↓ 应用配置
+     * TTL=4小时, 允许缓存空值, prefix="pulsehub:analytics:"
      * 
-     * 【缓存策略】
-     * - 缓存空值：防止重复查询不存在的历史用户
-     * - 长TTL：减少数据库压力
-     * - 全量缓存：包括空值，防止分析任务被无效查询影响
+     * 【业务价值】
+     * - BI报表生成
+     * - 数据分析查询
+     * - 管理驾驶舱展示
      * 
-     * 【适用场景】
-     * - 历史数据分析
-     * - 定期报表生成
-     * - 批量数据处理任务
-     * 
-     * @param userId 要查询的用户ID
-     * @return 包含用户画像的Optional，针对分析场景优化
+     * 【配置效果】
+     * - 防止分析任务缓存穿透（缓存空值）
+     * - 长期缓存减少DB压力
+     * - Redis Key: pulsehub:analytics:analytics-user-profiles::user123
      */
     @Cacheable(value = "analytics-user-profiles", key = "#userId")
     public Optional<UserProfile> getProfileForAnalytics(String userId) {
@@ -142,93 +160,151 @@ public class ProfileService {
     }
 
     /**
-     * 传统缓存策略：缓存所有结果（包括空值）
+     * 🔍 用户行为场景专用方法
      * 
-     * 【适用场景】
-     * - 面临缓存穿透攻击风险
-     * - 查询模式相对稳定
-     * - 新用户注册不频繁
+     * 【配置匹配说明】
+     * value = "user-behaviors"
+     * ↓ 匹配过程  
+     * CacheManager.getCache("user-behaviors")
+     * ↓ 查找配置注册表
+     * 找到：builder.withCacheConfiguration("user-behaviors", ...)
+     * ↓ 应用配置
+     * TTL=30分钟, disableCachingNullValues(), prefix="pulsehub:behavior:"
      * 
-     * 【特点】
-     * - 防止缓存穿透攻击
-     * - 减少重复的无效数据库查询
-     * - 占用更多缓存内存
-     * - 新用户注册后可能需要手动清除缓存
+     * 【业务价值】
+     * - 实时推荐系统
+     * - 用户行为分析
+     * - A/B测试数据
      * 
-     * 【注意】
-     * 如果需要此策略，请启用此方法并禁用上面的方法
+     * 【配置效果】
+     * - 中等TTL平衡实时性和性能
+     * - 新行为数据立即可见
+     * - Redis Key: pulsehub:behavior:user-behaviors::user123
      */
-    // @Cacheable(value = "user-profiles", key = "#userId")
-    public Optional<UserProfile> getProfileByUserIdWithNullCache(String userId) {
-        log.info("从数据库查询用户画像（缓存所有结果）: {}", userId);
+    @Cacheable(value = "user-behaviors", key = "#userId", unless = "#result.isEmpty()")
+    public List<String> getUserBehaviors(String userId) {
+        log.info("行为查询 - 使用user-behaviors配置，TTL=30分钟");
+        // 模拟返回用户行为数据
+        return List.of("login", "view_product", "add_to_cart");
+    }
+
+    /**
+     * ⚙️ 系统配置场景专用方法
+     * 
+     * 【配置匹配说明】
+     * value = "system-configs"
+     * ↓ 匹配过程
+     * CacheManager.getCache("system-configs")
+     * ↓ 查找配置注册表
+     * 找到：builder.withCacheConfiguration("system-configs", ...)
+     * ↓ 应用配置
+     * TTL=24小时, 缓存所有值包括null, prefix="pulsehub:config:"
+     * 
+     * 【业务价值】
+     * - 系统参数配置
+     * - 元数据字典
+     * - 功能开关管理
+     * 
+     * 【配置效果】
+     * - 超长TTL适合低频变化的配置
+     * - 缓存null值减少无效查询
+     * - Redis Key: pulsehub:config:system-configs::feature.enable.recommendation
+     */
+    @Cacheable(value = "system-configs", key = "#configKey")
+    public String getSystemConfig(String configKey) {
+        log.info("配置查询 - 使用system-configs配置，TTL=24小时");
+        // 模拟系统配置查询
+        return "config-value-for-" + configKey;
+    }
+
+    /**
+     * 🔄 兼容性方法（使用原有配置）
+     * 
+     * 【配置匹配说明】
+     * value = "user-profiles"
+     * ↓ 匹配过程
+     * CacheManager.getCache("user-profiles")
+     * ↓ 查找配置注册表
+     * 找到：builder.withCacheConfiguration("user-profiles", ...)
+     * ↓ 应用配置
+     * TTL=1小时, 使用默认空值策略
+     * 
+     * 【使用建议】
+     * 保留用于向后兼容，新功能建议使用上面的专用方法
+     */
+    @Cacheable(value = "user-profiles", key = "#userId")
+    public Optional<UserProfile> getProfile(String userId) {
+        log.info("兼容查询 - 使用user-profiles配置，TTL=1小时");
         return userProfileRepository.findById(userId);
     }
 
     /**
-     * 条件缓存策略：基于复杂条件决定是否缓存
+     * ❓ 演示默认配置的使用
      * 
-     * 【适用场景】
-     * - 需要根据用户类型或其他属性决定缓存策略
-     * - 某些特殊用户的数据不应该被长期缓存
+     * 【配置匹配说明】
+     * value = "unknown-cache"
+     * ↓ 匹配过程
+     * CacheManager.getCache("unknown-cache")
+     * ↓ 查找配置注册表
+     * 未找到匹配的专用配置
+     * ↓ 使用默认配置
+     * 使用 cacheConfiguration() 的配置：TTL=15分钟, 不缓存空值
      * 
-     * 【示例条件】
-     * - unless = "#result.isEmpty()": 不缓存空值
-     * - unless = "#result.isPresent() && #result.get().isVip()": 不缓存VIP用户
-     * - condition = "#userId.length() > 3": 只为长ID用户启用缓存
-     */
-    // @Cacheable(value = "user-profiles", key = "#userId", 
-    //           unless = "#result.isEmpty()", 
-    //           condition = "#userId != null && #userId.length() > 3")
-    public Optional<UserProfile> getProfileWithComplexCaching(String userId) {
-        log.info("使用复杂缓存策略查询用户: {}", userId);
-        return userProfileRepository.findById(userId);
-    }
-
-    /**
-     * 更新用户画像并自动清除缓存
-     * 
-     * 【缓存管理】
-     * 使用 @CacheEvict 确保数据更新后缓存失效
-     * 
-     * 【适用场景】
-     * - 用户资料更新
-     * - 需要确保缓存与数据库数据一致性
-     */
-    @CacheEvict(value = {"user-profiles", "crm-user-profiles", "analytics-user-profiles"}, key = "#userId")
-    public UserProfile updateProfile(String userId, UserProfile updatedProfile) {
-        log.info("更新用户画像并清除所有相关缓存: {}", userId);
-        updatedProfile.setUserId(userId);
-        return userProfileRepository.save(updatedProfile);
-    }
-
-    /**
-     * 更新用户画像并重新缓存
-     * 
-     * 【缓存管理】
-     * 使用 @CachePut 确保缓存立即更新为最新数据
-     * 
-     * 【特点】
-     * - 数据库更新和缓存更新在同一操作中完成
-     * - 避免了缓存失效后的第一次查询延迟
-     */
-    @CachePut(value = "user-profiles", key = "#userId")
-    public UserProfile updateAndCacheProfile(String userId, UserProfile updatedProfile) {
-        log.info("更新用户画像并重新缓存: {}", userId);
-        updatedProfile.setUserId(userId);
-        return userProfileRepository.save(updatedProfile);
-        }
-
-    /**
-     * 批量清除所有用户画像缓存
+     * 【实际效果】
+     * - 自动创建名为"unknown-cache"的缓存
+     * - 应用默认的15分钟TTL和不缓存空值策略
+     * - Redis Key: unknown-cache::user123 (无特殊前缀)
      * 
      * 【使用场景】
-     * - 系统维护
-     * - 数据迁移后的缓存刷新
-     * - 缓存空间清理
+     * - 临时缓存需求
+     * - 测试和开发环境
+     * - 尚未分类的业务数据
      */
-    @CacheEvict(value = {"user-profiles", "crm-user-profiles", "analytics-user-profiles"}, allEntries = true)
-    public void clearAllProfileCache() {
-        log.info("清除所有用户画像缓存");
+    @Cacheable(value = "unknown-cache", key = "#userId")
+    public String getTemporaryData(String userId) {
+        log.info("临时查询 - 使用默认配置，TTL=15分钟");
+        return "temporary-data-for-" + userId;
+    }
+
+    /**
+     * 🔧 缓存管理方法示例
+     * 
+     * 演示如何手动操作不同的缓存层
+     */
+    
+    @CacheEvict(value = "crm-user-profiles", key = "#userId")
+    public void evictCRMCache(String userId) {
+        log.info("清除CRM缓存: " + userId);
+    }
+
+    @CacheEvict(value = {"crm-user-profiles", "analytics-user-profiles", "user-behaviors"}, key = "#userId")
+    public void evictAllUserCaches(String userId) {
+        log.info("清除用户所有缓存: " + userId);
+    }
+
+    @CachePut(value = "crm-user-profiles", key = "#userProfile.userId")
+    public UserProfile updateProfile(UserProfile userProfile) {
+        log.info("更新并刷新CRM缓存: " + userProfile.getUserId());
+        return userProfileRepository.save(userProfile);
+    }
+
+    /**
+     * 📋 配置验证方法
+     * 
+     * 用于验证不同缓存配置是否按预期工作
+     */
+    public void demonstrateCacheSelection() {
+        log.info("\n🎯 ===== 缓存配置选择演示 =====");
+        
+        // 测试不同配置的选择
+        getProfileForCRM("demo-user");          // 使用crm-user-profiles配置
+        getProfileForAnalytics("demo-user");    // 使用analytics-user-profiles配置  
+        getUserBehaviors("demo-user");          // 使用user-behaviors配置
+        getSystemConfig("demo.feature.flag");  // 使用system-configs配置
+        getProfile("demo-user");               // 使用user-profiles配置
+        getTemporaryData("demo-user");         // 使用默认配置
+        
+        log.info("🎯 ===== 演示完成 =====\n");
     }
 
     public boolean profileExists(String userId) {
