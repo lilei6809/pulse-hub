@@ -5,7 +5,7 @@ spring:
   application:
     name: profile-service
   datasource:
-    url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub_db}"
+    url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub}"
     username: "${POSTGRES_USER:pulsehub}"
     password: "${POSTGRES_PASSWORD:pulsehub}"
     driver-class-name: org.postgresql.Driver
@@ -21,6 +21,14 @@ spring:
     redis:
       host: "${REDIS_HOST:redis}"
       port: "${REDIS_PORT:6379}"
+      timeout: 3000ms
+      connect-timeout: 3000ms
+      jedis:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
 
 management:
   endpoints:
