@@ -113,6 +113,40 @@ services:
       timeout: 5s
       retries: 5
 
+  infrastructure-service:
+    build:
+      context: .
+      dockerfile: infrastructure-service/Dockerfile
+    container_name: infrastructure-service
+    ports:
+      - "${INFRASTRUCTURE_SERVICE_PORT}:8085"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_ENVIRONMENT: "docker"
+    networks:
+      - pulsehub-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    env_file:
+      - .env
 
   ingestion-service:
     build:
@@ -120,6 +154,8 @@ services:
       dockerfile: ingestion-service/Dockerfile
     container_name: ingestion-service
     depends_on:
+      infrastructure-service:
+        condition: service_healthy
       kafka:
         condition: service_healthy
       schema-registry:
@@ -155,6 +191,8 @@ services:
     networks:
       - pulsehub-net
     depends_on:
+      infrastructure-service:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -168,6 +206,8 @@ services:
       dockerfile: event-producer/Dockerfile
     container_name: event-producer
     depends_on:
+      infrastructure-service:
+        condition: service_healthy
       kafka:
         condition: service_healthy
       schema-registry:

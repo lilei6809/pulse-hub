@@ -281,16 +281,74 @@ system-configs:
 
 **实施建议：** Task 7的实现方案可作为后续微服务的缓存层标准模板，特别是分层缓存策略和测试验证体系值得在整个项目中推广。
 
-- [ ] **Task 9: Configure Multi-Topic Kafka Environment**
+- [ ] **Task 9: Configure Multi-Topic Kafka Environment** 🎯 **CRITICAL PATH TASK**
   - **Description**: Restructure the Kafka environment to handle multiple topics, separating raw events (user-activity-events) from processed results (profile-updates).
   - **Dependencies**: None
-  - **Subtasks**:
+  - **Complexity Score**: 7/10 (High complexity due to infrastructure coordination)
+  - **Estimated Duration**: 11-17 days (Critical Path)
+  - **Business Impact**: Enables hot/cold path separation and real-time processing capabilities
+  
+  **Subtasks (Topologically Sorted by Dependencies):**
+  
+  **🟢 Level 1 - Foundation (Days 1-2)**
     - [ ] **9.1**: Define and create Kafka topics
+      - **Dependencies**: None (Entry Point)
+      - **Duration**: 1-2 days
+      - **Deliverables**: `user-activity-events`, `profile-updates`, `device-classifications` topics
+      - **Key Technologies**: Kafka AdminClient, TopicBuilder API
+  
+  **🟡 Level 2 - Partitioning Strategy (Days 3-5)**
     - [ ] **9.2**: Design partitioning strategy
+      - **Dependencies**: 9.1 ✅ (Requires topics to exist)
+      - **Duration**: 2-3 days
+      - **Deliverables**: User-ID based hash partitioning, optimal partition count calculation
+      - **Key Decisions**: 30 partitions per topic, UserBasedPartitioner implementation
+  
+  **🔵 Level 3 - Reliability Configuration (Days 6-7)**
     - [ ] **9.3**: Configure replication and durability settings
+      - **Dependencies**: 9.1, 9.2 ✅ (Requires topics and partitioning strategy)
+      - **Duration**: 1-2 days
+      - **Deliverables**: 3-replica setup, min.insync.replicas=2, acks=all configuration
+      - **Risk Mitigation**: Data loss prevention, broker failure tolerance
+  
+  **🟣 Level 4 - Error Handling (Days 8-11)**
     - [ ] **9.4**: Implement error handling and retry mechanisms
+      - **Dependencies**: 9.1, 9.2, 9.3 ✅ (Requires complete topic infrastructure)
+      - **Duration**: 3-4 days
+      - **Deliverables**: Dead Letter Queue setup, exponential backoff retry, idempotent consumers
+      - **Critical Features**: @RetryableTopic annotation, circuit breaker pattern
+  
+  **🔴 Level 5 - Monitoring Infrastructure (Days 12-14)**
     - [ ] **9.5**: Set up monitoring and alerting
+      - **Dependencies**: 9.3, 9.4 ✅ (Requires stable infrastructure + error handling)
+      - **Duration**: 2-3 days
+      - **Deliverables**: JMX metrics, Prometheus integration, Grafana dashboards
+      - **Monitoring Scope**: Broker health, consumer lag, error rates, throughput metrics
+  
+  **⚫ Level 6 - Application Integration (Days 15-17)**
     - [ ] **9.6**: Integrate Kafka with Spring Boot application
+      - **Dependencies**: 9.4, 9.5 ✅ (Requires error handling + monitoring)
+      - **Duration**: 2-3 days
+      - **Deliverables**: KafkaTemplate configuration, @KafkaListener setup, transaction support
+      - **Integration Points**: profile-service, stream-processor, ingestion-service
+  
+  **🎯 Critical Path Analysis:**
+  ```
+  9.1 → 9.2 → 9.3 → 9.4 → 9.5 → 9.6 (Sequential Dependencies)
+  Total Duration: 11-17 days (All subtasks on critical path)
+  ```
+  
+  **🔗 Downstream Task Impact:**
+  - **Task 12** (Real-time Event Processor): Depends on 9.1, 9.2, 9.4
+  - **Task 15** (Cold Path Persistence): Depends on 9.1, 9.3
+  - **Task 25** (Event-Driven Cache): Depends on 9.1, 9.6
+  
+  **📊 Success Metrics:**
+  - [ ] All 3 topics created with correct partition/replica configuration
+  - [ ] Message throughput: >10,000 events/second per topic
+  - [ ] Consumer lag: <100ms under normal load
+  - [ ] Error rate: <0.1% message processing failures
+  - [ ] Recovery time: <30 seconds from broker failure
 
 - [ ] **Task 10: Create User Profile Model**
   - **Description**: Design and implement the User Profile data model to store enriched user attributes including lastActiveAt timestamp, page view counter, and device classification.
