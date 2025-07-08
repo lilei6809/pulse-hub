@@ -1,0 +1,73 @@
+server:
+  port: "${INFRASTRUCTURE_SERVICE_PORT:8085}"
+
+spring:
+  application:
+    name: infrastructure-service
+  
+  # Kafka 配置 - 用于Topic管理
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+    admin:
+      # 基础设施服务专用配置
+      request-timeout: 30000
+      connections-max-idle: 300000
+      retry-backoff: 1000
+      
+  # 数据库连接验证配置
+  datasource:
+    url: "jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub}"
+    username: "${POSTGRES_USER:pulsehub}"
+    password: "${POSTGRES_PASSWORD:pulsehub}"
+    driver-class-name: org.postgresql.Driver
+    # 基础设施服务只需要验证连接，不需要持久化
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 1
+      connection-timeout: 5000
+      validation-timeout: 3000
+      
+  # Redis 连接验证配置  
+  data:
+    redis:
+      host: "${REDIS_HOST:redis}"
+      port: "${REDIS_PORT:6379}"
+      timeout: 3000ms
+      connect-timeout: 3000ms
+      jedis:
+        pool:
+          max-active: 2
+          max-wait: 3000ms
+          max-idle: 2
+          min-idle: 1
+
+# 应用特定配置
+app:
+  environment: "${APP_ENVIRONMENT:dev}"
+
+# 健康检查和监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    kafka:
+      enabled: true
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+# 日志配置 - 基础设施服务需要详细日志
+logging:
+  level:
+    com.pulsehub.infrastructure: INFO
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO
+    org.springframework.boot.actuate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" 
