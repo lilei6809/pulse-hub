@@ -16,14 +16,18 @@ import java.util.concurrent.TimeUnit;
 /**
  * 基础设施初始化服务
  * 
+ * 混合健康检查策略：
+ * 1. 启动时验证（fail-fast）- 开发友好，快速反馈问题
+ * 2. 运行时健康检查（Spring Boot Actuator）- 生产友好，持续监控
+ * 
  * 负责启动时验证整个数据平台的基础组件：
  * - Kafka 连接和 Topics 创建
  * - PostgreSQL 数据库连接 
  * - Redis 缓存连接
- * - Schema Registry 健康状态
  * 
- * 中级工程师特性：fail-fast 策略
- * 如果任何基础组件失败，服务会立即停止，确保数据一致性
+ * 环境差异化策略：
+ * - 开发环境：快速失败，立即暴露问题
+ * - 生产环境：记录错误但可能允许部分功能降级（未来扩展）
  */
 @Slf4j
 @Service
@@ -54,10 +58,44 @@ public class InfrastructureInitializationService {
             log.info("🎯 PulseHub Infrastructure Service is ready to serve other services");
             
         } catch (Exception e) {
-            log.error("💥 Infrastructure validation failed: {}", e.getMessage(), e);
-            // fail-fast: 基础设施失败时立即退出
-            System.exit(1);
+            handleInfrastructureFailure(e);
         }
+    }
+    
+    /**
+     * 处理基础设施验证失败
+     * 根据环境采用不同的失败策略
+     */
+    private void handleInfrastructureFailure(Exception e) {
+        log.error("💥 Infrastructure validation failed: {}", e.getMessage(), e);
+        
+        // 开发友好的环境：立即失败，快速反馈
+        if (isDevelopmentEnvironment()) {
+            log.error("🚨 Development-friendly environment detected: {} - applying fail-fast strategy", environment);
+            log.error("🔧 Please ensure all infrastructure components (PostgreSQL, Redis, Kafka) are running");
+            log.error("💡 Tip: Run 'docker-compose up postgres redis kafka' to start dependencies");
+            log.error("🐳 For Docker: Check if all containers are healthy with 'docker-compose ps'");
+            System.exit(1);
+        } else {
+            // 生产环境：记录错误，但允许 Spring Boot 健康检查处理
+            log.error("⚠️ Production environment detected: {} - infrastructure issues will be reported via health checks", environment);
+            log.error("🏥 Service will remain running, but health status will show as DOWN");
+            log.error("📊 Monitor /actuator/health for detailed component status");
+            // 不退出，让 Spring Boot 的健康检查机制处理
+        }
+    }
+    
+    /**
+     * 判断是否为开发友好的环境
+     * 包括：dev, test, docker, local 等
+     */
+    private boolean isDevelopmentEnvironment() {
+        String env = environment.toLowerCase();
+        return env.equals("dev") || 
+               env.equals("test") || 
+               env.equals("docker") || 
+               env.equals("local") || 
+               env.equals("development");
     }
     
     /**
