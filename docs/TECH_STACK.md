@@ -8,7 +8,7 @@
 - **Scalability-First:** All choices are made with future scalability in mind.
 - **Right Tool for the Job:** We will introduce new components (e.g., different databases, caching layers) as the complexity of our use cases demands them.
 
-## 2. Core Stack (MVP v0.1)
+## 2. Core Stack (MVP v0.2)
 
 This is the foundational technology stack we will use to build the initial version of PulseHub.
 
@@ -19,6 +19,9 @@ This is the foundational technology stack we will use to build the initial versi
 | **Database** | **PostgreSQL** | Latest Stable Release | A powerful, reliable open-source RDBMS. Its first-class support for `JSONB` is ideal for storing events with flexible, dynamic properties. |
 | **Build & Dependencies** | **Maven** | 3.9+ | The standard for managing dependencies and build lifecycles in a multi-module Java project. |
 | **Containerization** | **Docker & Docker Compose** | Latest Stable Releases | Ensures a consistent, reproducible development environment and simplifies local orchestration of our multi-service architecture. |
+|  | MongoDB |  |  |
+|  | Redis |  |  |
+|  | Kafka Stream |  |  |
 
 ## 3. Future & Ecosystem Stack
 
