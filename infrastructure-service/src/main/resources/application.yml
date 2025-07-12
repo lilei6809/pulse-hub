@@ -41,6 +41,23 @@ spring:
           max-idle: 2
           min-idle: 1
 
+# Eureka服务发现配置
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+    lease-renewal-interval-in-seconds: 30
+
+# 启用服务发现功能
+pulsehub:
+  discovery:
+    enabled: true
+
 # 应用特定配置
 app:
   environment: "${APP_ENVIRONMENT:dev}"
@@ -69,5 +86,36 @@ logging:
     org.apache.kafka: WARN
     org.springframework.kafka: INFO
     org.springframework.boot.actuate: INFO
+    org.springframework.cloud.netflix.eureka: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" 
+
+---
+# 本地开发环境配置
+spring:
+  config:
+    activate:
+      on-profile: local
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+---
+# Docker环境配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-service:8761/eureka
+  instance:
+    hostname: infrastructure-service
+    prefer-ip-address: true 

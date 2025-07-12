@@ -69,6 +69,13 @@
             <artifactId>common</artifactId>
             <version>${project.version}</version>
         </dependency>
+        
+        <!-- 服务发现配置模块 -->
+        <dependency>
+            <groupId>com.pulsehub</groupId>
+            <artifactId>common-config</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Lombok 简化开发 -->
         <dependency>
@@ -95,7 +102,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
                 <configuration>
                     <compilerArgs>
                         <arg>-parameters</arg>
@@ -107,7 +113,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
                 <executions>
                     <execution>
                         <goals>

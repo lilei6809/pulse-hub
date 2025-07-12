@@ -57,6 +57,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 服务发现配置模块 -->
+        <dependency>
+            <groupId>com.pulsehub</groupId>
+            <artifactId>common-config</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Protobuf Java -->
         <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -76,7 +83,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
                 <executions>
                     <execution>
                         <goals>
