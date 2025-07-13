@@ -245,9 +245,9 @@ services:
       discovery-service:
         condition: service_healthy
     environment:
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
-      - EUREKA_URI=http://discovery-service:8761/eureka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
+      SCHEMA_REGISTRY_URL: "${SCHEMA_REGISTRY_URL}"
+      EUREKA_URI: "http://discovery-service:8761/eureka"
     ports:
       - "${EVENT_PRODUCER_PORT}:8082"
     networks:

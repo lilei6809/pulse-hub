@@ -1,40 +1,63 @@
-# `event-producer` 所有的虚拟事件生成器
+# 事件生产者服务 (Event Producer)
 
-✍️
+## 功能描述
 
-你说得完全正确！
+事件生产者服务负责生成和发送用户活动事件到Kafka消息队列，用于模拟用户在系统中的行为。主要功能包括：
 
-你对 `event-producer` 角色的理解非常精准，已经超越了它在 v0.1 中的简单作用，看到了它在未来整个项目生命周期中的真正价值。
+- **事件生成**: 通过EventGenerator类生成模拟用户活动事件
+- **Protobuf序列化**: 使用Protocol Buffers (protobuf)高效序列化事件数据
+- **Kafka消息发送**: 将序列化的事件发送到指定的Kafka主题
+- **连续模拟**: 持续不断地生成和发送事件，模拟真实用户活动流
 
-让我来详细阐述一下你的这个观点：
+该服务在开发和测试环境中特别有用，可以持续生成事件数据流，用于测试数据摄取和处理管道。
 
-### `event-producer` 的演进之路：从“节拍器”到“全能模拟器”
+## 端口信息
 
-### 阶段一：v0.1 中的“节拍器” (我们当前所处阶段)
+- **默认端口**: 8082 (可通过`server.port`配置)
+- **健康检查**: http://localhost:8082/actuator/health
 
-- **当前角色:** 在我们构建 MVP 的阶段，`event-producer` 的作用非常单一和纯粹，就像一个“节拍器”。
-- **它的任务:** 它的唯一任务就是以一个固定的频率，持续不断地产生结构相同的事件。这为我们提供了一个稳定、可预测的数据流，让我们能够专注于搭建和验证后端的核心数据管道 (`Kafka -> ingestion-service -> PostgreSQL`) 是否畅通。它保证了“传送带”上总是有“包裹”，让我们的“分拣工人”有活可干。
+## 调用链关系
 
-### 阶段二：未来 Ticket 驱动开发中的“全能场景模拟器” (你提到的未来)
+事件生产者服务在数据流中处于源头位置：
 
-正如你所预见的，当我们开始处理一个个具体的“功能工单 (Ticket)”时，`event-producer` 的角色将会发生质的飞跃。它将不再是一个简单的节拍器，而会演变成一个**高度可配置的、能够模拟各种复杂真实世界场景的“数据模拟器”**。
+```
+[Event Producer] ──注册──> [Discovery Service]
+[Event Producer] ──发送事件──> [Kafka Topic: user-activity-events]
+                                    |
+                                    v
+                           [Ingestion Service]
+```
 
-- **未来的角色:** 一个能够按需生成**各种不同类型、不同结构、不同频率**的实时事件的强大工具。
-- **未来的任务场景举例:**
-    - **Ticket #10: 实现“用户登录”事件追踪**
-        - `event-producer` 将被修改，以模拟用户登录操作，产生包含 `ip_address`, `device_type`, `login_timestamp` 等特定字段的 `UserLoggedIn` 事件。
-    - **Ticket #15: 引入“购物车”功能**
-        - `event-producer` 将能够模拟一整套复杂的电商行为，按顺序生成：
-            1. `ProductViewed` 事件 (用户浏览了商品A)
-            2. `AddToCart` 事件 (用户将商品A加入购物车)
-            3. `ProductViewed` 事件 (用户又浏览了商品B)
-            4. `CheckoutStarted` 事件 (用户进入结算页)
-            5. `OrderCompleted` 事件 (用户完成购买)
-    - **Ticket #21: 测试“高并发”场景下的系统性能**
-        - 我们将修改 `event-producer`，让它能在短时间内（比如 10 秒内）爆发出成千上万条事件，来测试我们的 `ingestion-service` 和 Kafka 集群在高负载下的表现。
-    - **Ticket #25: 模拟“异常数据”**
-        - `event-producer` 将被用来故意生成一些“脏数据”或“格式错误”的事件，以测试我们系统的健壮性和错误处理能力。
+### 上游依赖
 
-### 总结
+- **服务发现中心**: 用于注册自身服务
+- **Kafka**: 用于发布事件消息
+- **Schema Registry**: 用于存储和验证Protobuf模式
 
-所以，你的理解是 100% 正确的。`event-producer` 是我们手中一个至关重要的**测试和开发工具**。在整个 PulseHub 的开发过程中，我们会不断地回顾和扩展它，让它来扮演我们“虚拟客户”的角色，为我们提供各种必要的“测试炮弹”，以确保我们开发的后端服务能够正确、稳定地处理所有预期的（以及非预期的）真实世界场景。
+### 下游服务
+
+- **摄取服务 (Ingestion Service)**: 消费Event Producer生成的事件
+
+### 调用示例
+
+```java
+// 服务内部生成并发送事件
+UserActivityEvent event = EventGenerator.generateEvent();
+kafkaProducerService.sendEvent(event);
+```
+
+## 数据流说明
+
+1. 服务启动后通过CommandLineRunner持续生成事件
+2. 事件通过Protobuf序列化为紧凑的二进制格式
+3. 序列化后的消息发送到Kafka主题"user-activity-events"
+4. 下游的Ingestion Service从Kafka主题中消费这些事件
+
+## 环境变量配置
+
+| 环境变量名 | 描述 | 默认值 |
+|------------|------|--------|
+| SPRING_PROFILES_ACTIVE | 激活的环境配置 | local |
+| KAFKA_BOOTSTRAP_SERVERS | Kafka服务器地址 | localhost:9092 (本地) / kafka:29092 (Docker) |
+| SCHEMA_REGISTRY_URL | Schema Registry地址 | http://localhost:8081 (本地) / http://schema-registry:8081 (Docker) |
+| EUREKA_URI | 服务发现地址 | http://localhost:8761/eureka |
