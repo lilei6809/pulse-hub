@@ -8,10 +8,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="infrastructure-service" />
-        <module name="profile-service" />
         <module name="common" />
+        <module name="common-config" />
+        <module name="profile-service" />
         <module name="event-producer" />
         <module name="ingestion-service" />
+        <module name="discovery-service" />
       </profile>
     </annotationProcessing>
   </component>

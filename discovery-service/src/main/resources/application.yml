@@ -1,0 +1,56 @@
+server:
+  port: "${DISCOVERY_SERVICE_PORT:8761}"
+
+spring:
+  application:
+    name: discovery-service
+  profiles:
+    active: "${SPRING_PROFILES_ACTIVE:default}"
+
+# Eureka服务器配置
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true  # 使用IP地址而非主机名，适合在Docker中使用
+  client:
+    register-with-eureka: false  # 不将自己注册为客户端
+    fetch-registry: false        # 不从Eureka获取注册信息
+  server:
+    # 关闭自我保护模式（开发环境使用，生产环境应开启）
+    enable-self-preservation: false
+    # 清理间隔（毫秒）
+    eviction-interval-timer-in-ms: 30000
+    
+# 开发环境配置
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+eureka:
+  instance:
+    hostname: localhost
+
+# Docker环境配置
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+eureka:
+  instance:
+    hostname: discovery-service
+    # 确保Docker环境下使用容器名称可以访问
+    prefer-ip-address: true
+    ip-address: ${EUREKA_INSTANCE_IP:discovery-service}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # 暴露所有端点，便于监控
+  endpoint:
+    health:
+      show-details: always 

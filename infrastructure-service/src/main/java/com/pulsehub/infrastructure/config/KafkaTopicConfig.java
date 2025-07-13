@@ -1,4 +1,4 @@
-package com.pulsehub.infrastructure;
+package com.pulsehub.infrastructure.config;
 
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;

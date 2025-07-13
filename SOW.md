@@ -483,5 +483,77 @@ system-configs:
 - [ ] **Configure Networking**: Ensure it is part of the `pulsehub-network` and can be reached by other services via its service name.
 - [ ] **Verification**: Launch the entire stack with `docker-compose up --build` and verify that all services successfully register themselves with the Spring Boot Admin dashboard, accessible at `http://localhost:9090`.
 
+### 5.5. Task #30: Implement Service Discovery Development Environment with Eureka
+
+- **Goal**: Create a service discovery-based development environment using Eureka that enables local development services to connect seamlessly to infrastructure services running in Docker containers.
+- **Priority**: High
+- **Status**: ► in-progress
+- **Dependencies**: Task 7, Task 9, Task 25
+- **Complexity**: High
+
+#### 5.5.1. Implementation Plan
+- [✓] **30.1**: Configure and Deploy Eureka Server in Docker with High Availability (Completed)
+  - Create discovery-service Spring Boot module with Eureka Server
+  - Configure standalone and clustered deployment options
+  - Implement resilience patterns for high availability
+  - Set up Docker configuration for the discovery service
+
+- [►] **30.2**: Implement Service Registration for Local and Dockerized Services (In Progress)
+  - Create common configuration for Eureka clients
+  - Implement environment-aware service registration
+  - Configure client-side discovery mechanisms
+  - Ensure proper health check integration
+
+- [ ] **30.3**: Register Infrastructure Services with Eureka
+  - Configure service registration sidecars for infrastructure services
+  - Implement discovery adapters for PostgreSQL, Redis, and Kafka
+  - Set up health checks for infrastructure components
+  - Create dynamic service resolution for infrastructure services
+
+- [ ] **30.4**: Configure Service Discovery Clients with Abstraction Layer
+  - Implement service discovery abstraction layer
+  - Configure fallback mechanisms for resilience
+  - Implement circuit breakers for service communication
+  - Create client-side load balancing strategy
+
+- [ ] **30.5**: Document Development Environment and Troubleshooting
+  - Create comprehensive developer guide for using service discovery
+  - Document common issues and their resolutions
+  - Create example implementations and templates
+  - Develop onboarding tutorial for new developers
+
+#### 5.5.2. Key Technologies & Implementation Details
+
+**Eureka Server Setup:**
+- Spring Cloud Eureka Server with self-preservation mode configured for development
+- High availability configuration with peer awareness
+- Security configuration with appropriate credentials
+- Dashboard customization for better visibility
+
+**Service Registration:**
+- Spring Cloud Eureka Client for Spring Boot services
+- Custom registration mechanisms for non-JVM services
+- Environment-aware instance ID generation
+- Metadata-enriched service registration
+
+**Network Configuration:**
+- Docker and local network bridging
+- DNS resolution strategies
+- Consistent naming conventions
+- Service URL mapping
+
+**Cross-Environment Communication:**
+- Consistent service resolution between local and Docker environments
+- Network address translation handling
+- Timeout and retry strategies
+- Security configuration across network boundaries
+
+**Implementation Deliverables:**
+- discovery-service module with Eureka Server
+- Common client configuration library
+- Infrastructure service registration sidecars
+- Service discovery abstraction layer
+- Comprehensive documentation and examples
+
 ---
 **Note:** This SOW is a living document. Please update the checkboxes as tasks are completed to reflect the real-time progress of the project. 

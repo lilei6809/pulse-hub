@@ -12,7 +12,6 @@
 
     <artifactId>event-producer</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
 
     <name>event-producer</name>
     <description>Simple application to produce events to Kafka for testing</description>
@@ -28,6 +27,19 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- Eureka Client -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- 服务发现配置模块 -->
+        <dependency>
+            <groupId>com.pulsehub</groupId>
+            <artifactId>common-config</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Lombok for reducing boilerplate code -->

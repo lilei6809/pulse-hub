@@ -39,7 +39,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   schema-registry:
     image: confluentinc/cp-schema-registry:${CONFLUENT_PLATFORM_VERSION}
@@ -97,7 +97,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   redis:
     image: redis:7-alpine
@@ -112,6 +112,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      
+  discovery-service:
+    build:
+      context: .
+      dockerfile: discovery-service/Dockerfile
+    container_name: discovery-service
+    ports:
+      - "${DISCOVERY_SERVICE_PORT:-8761}:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: "docker"
+      EUREKA_INSTANCE_IP: "discovery-service"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env.docker
 
   infrastructure-service:
     build:
@@ -129,6 +150,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      discovery-service:
+        condition: service_started
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
@@ -137,6 +160,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       APP_ENVIRONMENT: "docker"
+      EUREKA_URI: "http://discovery-service:8761/eureka"
     networks:
       - pulsehub-net
     healthcheck:
@@ -146,7 +170,7 @@ services:
       start_period: 40s
       retries: 3
     env_file:
-      - .env
+      - .env.docker
 
   ingestion-service:
     build:
@@ -162,6 +186,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      discovery-service:
+        condition: service_healthy
     ports:
       - "${INGESTION_SERVICE_PORT}:8081"
     environment:
@@ -169,10 +195,11 @@ services:
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
       SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
       SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
+      EUREKA_URI: "http://discovery-service:8761/eureka"
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   profile-service:
     build:
@@ -186,6 +213,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SERVER_PORT: 8084
+      EUREKA_URI: "http://discovery-service:8761/eureka"
     ports:
       - "${PROFILE_SERVICE_PORT}:8084"
     networks:
@@ -197,8 +225,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      discovery-service:
+        condition: service_healthy
     env_file:
-      - .env
+      - .env.docker
 
   event-producer:
     build:
@@ -212,15 +242,18 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      discovery-service:
+        condition: service_healthy
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - EUREKA_URI=http://discovery-service:8761/eureka
     ports:
       - "${EVENT_PRODUCER_PORT}:8082"
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
 volumes:
   kafka-data:

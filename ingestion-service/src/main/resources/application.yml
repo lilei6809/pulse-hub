@@ -34,4 +34,4 @@ application:
 
 pulsehub:
   kafka:
-    topic: user-activity-events 
+    topic: user-activity-events
