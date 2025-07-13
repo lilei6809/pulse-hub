@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @RestController
-@RequestMapping("/actuator")
+@RequestMapping("/api/infrastructure")
 @RequiredArgsConstructor
 public class HealthController {
     

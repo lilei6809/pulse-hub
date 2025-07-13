@@ -39,7 +39,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   schema-registry:
     image: confluentinc/cp-schema-registry:${CONFLUENT_PLATFORM_VERSION}
@@ -97,7 +97,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   redis:
     image: redis:7-alpine
@@ -124,15 +124,15 @@ services:
       SPRING_PROFILES_ACTIVE: "docker"
       EUREKA_INSTANCE_IP: "discovery-service"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8761/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   infrastructure-service:
     build:
@@ -151,7 +151,7 @@ services:
       redis:
         condition: service_healthy
       discovery-service:
-        condition: service_healthy
+        condition: service_started
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
@@ -170,7 +170,7 @@ services:
       start_period: 40s
       retries: 3
     env_file:
-      - .env
+      - .env.docker
 
   ingestion-service:
     build:
@@ -199,7 +199,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
   profile-service:
     build:
@@ -228,7 +228,7 @@ services:
       discovery-service:
         condition: service_healthy
     env_file:
-      - .env
+      - .env.docker
 
   event-producer:
     build:
@@ -253,7 +253,7 @@ services:
     networks:
       - pulsehub-net
     env_file:
-      - .env
+      - .env.docker
 
 volumes:
   kafka-data:

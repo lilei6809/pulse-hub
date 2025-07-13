@@ -1,33 +1,26 @@
-server:
-  port: "${INFRASTRUCTURE_SERVICE_PORT:8085}"
-
 spring:
   application:
     name: infrastructure-service
-  
-  # Kafka 配置 - 用于Topic管理
+  profiles:
+    active: "${SPRING_PROFILES_ACTIVE:local}"  # 默认本地
   kafka:
     bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
     admin:
-      # 基础设施服务专用配置
       request-timeout: 30000
       connections-max-idle: 300000
       retry-backoff: 1000
-      
-  # 数据库连接验证配置
+
   datasource:
     url: "jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub}"
     username: "${POSTGRES_USER:pulsehub}"
     password: "${POSTGRES_PASSWORD:pulsehub}"
     driver-class-name: org.postgresql.Driver
-    # 基础设施服务只需要验证连接，不需要持久化
     hikari:
       maximum-pool-size: 2
       minimum-idle: 1
       connection-timeout: 5000
       validation-timeout: 3000
-      
-  # Redis 连接验证配置  
+
   data:
     redis:
       host: "${REDIS_HOST:redis}"
@@ -41,28 +34,27 @@ spring:
           max-idle: 2
           min-idle: 1
 
-# Eureka服务发现配置
+server:
+  port: "${INFRASTRUCTURE_SERVICE_PORT:8085}"
+
 eureka:
   client:
-    service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
+    service-url:
+      defaultZone: "${EUREKA_URI:http://localhost:8761/eureka}"
   instance:
-    prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
     lease-renewal-interval-in-seconds: 30
+    prefer-ip-address: true
 
-# 启用服务发现功能
 pulsehub:
   discovery:
     enabled: true
 
-# 应用特定配置
 app:
   environment: "${APP_ENVIRONMENT:dev}"
 
-# 健康检查和监控配置
 management:
   endpoints:
     web:
@@ -79,7 +71,6 @@ management:
     db:
       enabled: true
 
-# 日志配置 - 基础设施服务需要详细日志
 logging:
   level:
     com.pulsehub.infrastructure: INFO
@@ -88,34 +79,4 @@ logging:
     org.springframework.boot.actuate: INFO
     org.springframework.cloud.netflix.eureka: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" 
-
----
-# 本地开发环境配置
-spring:
-  config:
-    activate:
-      on-profile: local
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-  instance:
-    hostname: localhost
-    prefer-ip-address: true
-
----
-# Docker环境配置
-spring:
-  config:
-    activate:
-      on-profile: docker
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://discovery-service:8761/eureka
-  instance:
-    hostname: infrastructure-service
-    prefer-ip-address: true 
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
