@@ -121,6 +121,7 @@ services:
     ports:
       - "${DISCOVERY_SERVICE_PORT:-8761}:8761"
     environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_PROFILES_ACTIVE: "docker"
       EUREKA_INSTANCE_IP: "discovery-service"
     healthcheck:
@@ -153,14 +154,10 @@ services:
       discovery-service:
         condition: service_started
     environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
-      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
-      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       APP_ENVIRONMENT: "docker"
-      EUREKA_URI: "http://discovery-service:8761/eureka"
     networks:
       - pulsehub-net
     healthcheck:
@@ -189,13 +186,17 @@ services:
       discovery-service:
         condition: service_healthy
     ports:
-      - "${INGESTION_SERVICE_PORT}:8081"
+      - "${INGESTION_SERVICE_PORT}:8083"
     environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
-      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
-      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
       SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
-      EUREKA_URI: "http://discovery-service:8761/eureka"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - pulsehub-net
     env_file:
@@ -207,13 +208,9 @@ services:
       dockerfile: profile-service/Dockerfile
     container_name: profile-service
     environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
-      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
-      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       SERVER_PORT: 8084
-      EUREKA_URI: "http://discovery-service:8761/eureka"
     ports:
       - "${PROFILE_SERVICE_PORT}:8084"
     networks:
@@ -227,6 +224,12 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     env_file:
       - .env.docker
 
@@ -244,12 +247,18 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
-    environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
-      SCHEMA_REGISTRY_URL: "${SCHEMA_REGISTRY_URL}"
-      EUREKA_URI: "http://discovery-service:8761/eureka"
     ports:
       - "${EVENT_PRODUCER_PORT}:8082"
+    environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - pulsehub-net
     env_file:
