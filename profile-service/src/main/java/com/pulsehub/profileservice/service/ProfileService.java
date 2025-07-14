@@ -97,7 +97,7 @@ public class ProfileService {
      * @param userId 要查询的用户ID
      * @return 包含用户画像的Optional，如果不存在则为空
      */
-    @Cacheable(value = "user-profiles", key = "#userId", unless = "#result.isEmpty()")
+    @Cacheable(value = "user-profiles", key = "#userId", unless = "#result == null")
     public Optional<UserProfile> getProfileByUserId(String userId) {
         log.info("从数据库查询用户画像（不缓存空值）: {}", userId);
         return userProfileRepository.findById(userId);
@@ -125,7 +125,7 @@ public class ProfileService {
      * - 数据保持10分钟新鲜度
      * - Redis Key: pulsehub:crm:crm-user-profiles::user123
      */
-    @Cacheable(value = "crm-user-profiles", key = "#userId", unless = "#result.isEmpty()")
+    @Cacheable(value = "crm-user-profiles", key = "#userId", unless = "#result == null")
     public Optional<UserProfile> getProfileForCRM(String userId) {
         log.info("CRM场景查询用户画像（实时性优先）: {}", userId);
         return userProfileRepository.findById(userId);
