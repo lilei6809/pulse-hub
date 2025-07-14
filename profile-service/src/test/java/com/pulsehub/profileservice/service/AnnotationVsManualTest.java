@@ -33,18 +33,13 @@ import static org.mockito.Mockito.*;
  * 2. 掌握缓存行为的验证方法
  * 3. 了解Spring Cache和手动缓存的等价性
  */
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    classes = {
-        AnnotationVsManualTest.TestCacheConfig.class,
-        ProfileService.class,
-        ManualCacheExample.class
-    }
-)
-@TestPropertySource(properties = {
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
-})
-@Slf4j
+import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.GenericContainer;
+
+@Testcontainers
+@SpringBootTest
+@Import(CacheConfig.class)
+@TestPropertySource(properties = {"eureka.client.enabled=false"})
 class AnnotationVsManualTest {
 
     /**

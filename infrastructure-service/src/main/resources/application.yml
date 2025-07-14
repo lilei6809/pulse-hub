@@ -9,6 +9,10 @@ spring:
       request-timeout: 30000
       connections-max-idle: 300000
       retry-backoff: 1000
+    producer:
+      bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+      properties:
+        partitioner.class: com.pulsehub.infrastructure.kafka.partitioner.UserBasedPartitioner
 
   datasource:
     url: "jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub}"

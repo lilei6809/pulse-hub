@@ -232,15 +232,7 @@ system-configs:
 - **键名规范**: 分层命名空间 `pulsehub:{scenario}:{key}`
 - **健康检查**: Redis容器状态监控和自动重连
 
-#### 🎯 代码质量指标
 
-| 组件 | 代码行数 | 功能完整度 | 测试覆盖率 |
-|------|---------|-----------|-----------|
-| CacheConfig.java | 458行 | 企业级配置 | 100% |
-| ProfileService.java | 313行 | 多场景服务 | 完整测试 |
-| ProfileServiceTest.java | 733行 | 全面验证 | 所有场景 |
-| 示例代码 | 700+行 | 教学演示 | 对比测试 |
-| **总计** | **4,500+行** | **生产就绪** | **全面覆盖** |
 
 #### 📚 教学价值实现
 
@@ -261,14 +253,6 @@ system-configs:
    - 不同场景下的最佳选择
    - 实际业务场景模拟
 
-#### 🧪 测试验证体系
-
-**三个专业测试脚本：**
-
-1. **test-cache-behavior.sh**: 验证分层缓存策略的业务差异
-2. **test-cache-config-selection.sh**: 测试配置选择机制的正确性
-3. **test-event-driven-cache.sh**: 验证事件驱动缓存失效机制
-
 #### 💡 技术决策记录
 
 | 决策点 | 选择 | 理由 |
@@ -282,6 +266,9 @@ system-configs:
 **实施建议：** Task 7的实现方案可作为后续微服务的缓存层标准模板，特别是分层缓存策略和测试验证体系值得在整个项目中推广。
 
 - [ ] **Task 9: Configure Multi-Topic Kafka Environment** 🎯 **CRITICAL PATH TASK**
+  
+  我们在实现 task 9 期间: 另外完成了 infrastructure-service,  discovery-service 的搭建,  
+  
   - **Description**: Restructure the Kafka environment to handle multiple topics, separating raw events (user-activity-events) from processed results (profile-updates).
   - **Dependencies**: None
   - **Complexity Score**: 7/10 (High complexity due to infrastructure coordination)
@@ -289,48 +276,48 @@ system-configs:
   - **Business Impact**: Enables hot/cold path separation and real-time processing capabilities
   
   **Subtasks (Topologically Sorted by Dependencies):**
-  
-  **🟢 Level 1 - Foundation (Days 1-2)**
-    - [ ] **9.1**: Define and create Kafka topics
+      
+      **🟢 Level 1 - Foundation (Days 1-2)**
+        - [x] **9.1**: Define and create Kafka topics
       - **Dependencies**: None (Entry Point)
-      - **Duration**: 1-2 days
-      - **Deliverables**: `user-activity-events`, `profile-updates`, `device-classifications` topics
-      - **Key Technologies**: Kafka AdminClient, TopicBuilder API
-  
-  **🟡 Level 2 - Partitioning Strategy (Days 3-5)**
-    - [ ] **9.2**: Design partitioning strategy
+  - **Duration**: 1-2 days
+  - **Deliverables**: `user-activity-events`, `profile-updates`, `device-classifications` topics
+  - **Key Technologies**: Kafka AdminClient, TopicBuilder API
+      
+      **🟡 Level 2 - Partitioning Strategy (Days 3-5)**
+        - [ ] **9.2**: Design partitioning strategy
       - **Dependencies**: 9.1 ✅ (Requires topics to exist)
-      - **Duration**: 2-3 days
-      - **Deliverables**: User-ID based hash partitioning, optimal partition count calculation
-      - **Key Decisions**: 30 partitions per topic, UserBasedPartitioner implementation
-  
-  **🔵 Level 3 - Reliability Configuration (Days 6-7)**
-    - [ ] **9.3**: Configure replication and durability settings
+  - **Duration**: 2-3 days
+  - **Deliverables**: User-ID based hash partitioning, optimal partition count calculation
+  - **Key Decisions**: 30 partitions per topic, UserBasedPartitioner implementation
+      
+      **🔵 Level 3 - Reliability Configuration (Days 6-7)**
+        - [ ] **9.3**: Configure replication and durability settings
       - **Dependencies**: 9.1, 9.2 ✅ (Requires topics and partitioning strategy)
-      - **Duration**: 1-2 days
-      - **Deliverables**: 3-replica setup, min.insync.replicas=2, acks=all configuration
-      - **Risk Mitigation**: Data loss prevention, broker failure tolerance
-  
-  **🟣 Level 4 - Error Handling (Days 8-11)**
-    - [ ] **9.4**: Implement error handling and retry mechanisms
+  - **Duration**: 1-2 days
+  - **Deliverables**: 3-replica setup, min.insync.replicas=2, acks=all configuration
+  - **Risk Mitigation**: Data loss prevention, broker failure tolerance
+      
+      **🟣 Level 4 - Error Handling (Days 8-11)**
+        - [ ] **9.4**: Implement error handling and retry mechanisms
       - **Dependencies**: 9.1, 9.2, 9.3 ✅ (Requires complete topic infrastructure)
-      - **Duration**: 3-4 days
-      - **Deliverables**: Dead Letter Queue setup, exponential backoff retry, idempotent consumers
-      - **Critical Features**: @RetryableTopic annotation, circuit breaker pattern
-  
-  **🔴 Level 5 - Monitoring Infrastructure (Days 12-14)**
-    - [ ] **9.5**: Set up monitoring and alerting
+  - **Duration**: 3-4 days
+  - **Deliverables**: Dead Letter Queue setup, exponential backoff retry, idempotent consumers
+  - **Critical Features**: @RetryableTopic annotation, circuit breaker pattern
+      
+      **🔴 Level 5 - Monitoring Infrastructure (Days 12-14)**
+        - [ ] **9.5**: Set up monitoring and alerting
       - **Dependencies**: 9.3, 9.4 ✅ (Requires stable infrastructure + error handling)
-      - **Duration**: 2-3 days
-      - **Deliverables**: JMX metrics, Prometheus integration, Grafana dashboards
-      - **Monitoring Scope**: Broker health, consumer lag, error rates, throughput metrics
-  
-  **⚫ Level 6 - Application Integration (Days 15-17)**
-    - [ ] **9.6**: Integrate Kafka with Spring Boot application
+  - **Duration**: 2-3 days
+  - **Deliverables**: JMX metrics, Prometheus integration, Grafana dashboards
+  - **Monitoring Scope**: Broker health, consumer lag, error rates, throughput metrics
+      
+      **⚫ Level 6 - Application Integration (Days 15-17)**
+        - [ ] **9.6**: Integrate Kafka with Spring Boot application
       - **Dependencies**: 9.4, 9.5 ✅ (Requires error handling + monitoring)
-      - **Duration**: 2-3 days
-      - **Deliverables**: KafkaTemplate configuration, @KafkaListener setup, transaction support
-      - **Integration Points**: profile-service, stream-processor, ingestion-service
+  - **Duration**: 2-3 days
+  - **Deliverables**: KafkaTemplate configuration, @KafkaListener setup, transaction support
+  - **Integration Points**: profile-service, stream-processor, ingestion-service
   
   **🎯 Critical Path Analysis:**
   ```
@@ -349,7 +336,7 @@ system-configs:
   - [ ] Consumer lag: <100ms under normal load
   - [ ] Error rate: <0.1% message processing failures
   - [ ] Recovery time: <30 seconds from broker failure
-
+  
 - [ ] **Task 10: Create User Profile Model**
   - **Description**: Design and implement the User Profile data model to store enriched user attributes including lastActiveAt timestamp, page view counter, and device classification.
   - **Dependencies**: None
