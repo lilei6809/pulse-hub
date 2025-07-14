@@ -267,7 +267,7 @@ system-configs:
 
 - [ ] **Task 9: Configure Multi-Topic Kafka Environment** 🎯 **CRITICAL PATH TASK**
   
-  我们在实现 task 9 期间: 另外完成了 infrastructure-service,  discovery-service 的搭建,  
+  我们在实现 task 9 期间: 另外完成了 infrastructure-service,  discovery-service 的搭建,																																										`																																																							`  
   
   - **Description**: Restructure the Kafka environment to handle multiple topics, separating raw events (user-activity-events) from processed results (profile-updates).
   - **Dependencies**: None
