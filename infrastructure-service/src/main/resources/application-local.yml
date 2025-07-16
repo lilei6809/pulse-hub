@@ -16,6 +16,16 @@ spring:
       host: localhost
       port: 6379
 
+pulsehub:
+  kafka:
+    topic-default:
+      replicas: 1
+      min-insync-replicas: 1
+    partitions:
+      user-activity-events: 2
+      profile-update: 1
+      error-events: 1
+
 eureka:
   client:
     service-url:

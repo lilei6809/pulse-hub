@@ -39,6 +39,27 @@ public class KafkaTopicConfig {
     // 中级工程师特性：环境感知配置
     @Value("${app.environment:dev}")
     private String environment;
+
+    @Value("${pulsehub.kafka.topic-defaults.replicas:1}")
+    private int topicReplicas;
+
+    @Value("${pulsehub.kafka.topic-config.min-insync-replicas:1}")
+    private int minInSyncReplicas;
+
+    @Value("${pulsehub.kafka.partitions.user-activity-events}")
+    private int userActivityPartitions;
+
+    @Value("${pulsehub.kafka.partitions.profile-update}")
+    private int profileUpdatePartitions;
+
+    @Value("${pulsehub.kafka.partitions.error-events}")
+    private int errorEventPartitions;
+
+    @Value("${pulsehub.kafka.partitions.dead-letter-queue}")
+    private int deadLetterQueuePartitions;
+
+    @Value("${pulsehub.kafka.partitions.metrics-events}")
+    private int metricsEventsPartitions;
     
     @Bean
     public KafkaAdmin kafkaAdmin() {
@@ -61,14 +82,14 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic userActivityEventsTopic() {
         return TopicBuilder.name("user-activity-events")
-                .partitions(10)
-                .replicas(1) // 单机环境，生产环境建议3
+                .partitions(userActivityPartitions)
+                .replicas(topicReplicas) // 单机环境，生产环境建议3
                 .config(TopicConfig.RETENTION_MS_CONFIG, "604800000") // 7天
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
                 // 中级工程师特性：性能优化配置
                 .config(TopicConfig.SEGMENT_MS_CONFIG, "86400000") // 1天一个segment
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4") // 压缩节省存储
-                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1") // 最小同步副本
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(minInSyncReplicas)) // 最小同步副本
                 .build();
     }
     
@@ -81,13 +102,14 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic profileUpdatesTopic() {
         return TopicBuilder.name("profile-updates")
-                .partitions(5)
-                .replicas(1)
+                .partitions(profileUpdatePartitions)
+                .replicas(topicReplicas)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "172800000") // 2天
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
                 // 中级工程师特性：针对用户画像的优化
                 .config(TopicConfig.SEGMENT_MS_CONFIG, "43200000") // 12小时一个segment
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "snappy") // 快速压缩
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(minInSyncReplicas))
                 .build();
     }
     
@@ -100,8 +122,8 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic errorEventsTopic() {
         return TopicBuilder.name("error-events")
-                .partitions(3)
-                .replicas(1)
+                .partitions(errorEventPartitions)
+                .replicas(topicReplicas)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "2592000000") // 30天
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
                 // 中级工程师特性：错误事件专用配置
@@ -126,8 +148,8 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic deadLetterQueueTopic() {
         return TopicBuilder.name("dead-letter-queue")
-                .partitions(1) // 关键：保证顺序处理
-                .replicas(1)
+                .partitions(deadLetterQueuePartitions) // 关键：保证顺序处理
+                .replicas(topicReplicas)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "1209600000") // 14天
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
                 // 中级工程师特性：DLQ专用配置
@@ -141,8 +163,8 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic metricsEventsTopic() {
         return TopicBuilder.name("metrics-events")
-                .partitions(2)
-                .replicas(1)
+                .partitions(metricsEventsPartitions)
+                .replicas(topicReplicas)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "259200000") // 3天
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
