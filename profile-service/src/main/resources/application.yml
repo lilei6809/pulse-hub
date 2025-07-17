@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: profile-service
+  profiles:
+    active: "${SPRING_PROFILES_ACTIVE:local}"  # 默认本地
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+    # 为了实现 DLQ 的投递 是不是还需要配置 producer?
+
+
   datasource:
     url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pulsehub}"
     username: "${POSTGRES_USER:pulsehub}"

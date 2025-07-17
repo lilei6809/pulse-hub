@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package com.pulsehub.common.proto;
+
+option java_package = "com.pulsehub.common.proto";
+option java_multiple_files = true;
+
+// 引入一个 Protobuf 的标准类型，用来处理时间戳
+import "google/protobuf/timestamp.proto";
+
+// DeadLetterEvent 是我们发送到 DLQ 的最终消息: 信封
+message DeadLetterEvent {
+  // 原始消息的内容，我们用 bytes 类型来装，因为它可以容纳任何格式的原始消息
+  bytes original_payload = 1;
+
+  // 元数据对象
+  Metadata metadata = 2;
+}
+
+// Metadata 包含了所有用于诊断问题的上下文信息
+message Metadata {
+
+  // error_details 信息 失败的详细原因
+  ErrorDetails error_details  = 1;
+
+  // 消息的原始来源
+  Origin origin = 2;
+
+  // 处理失败时的上下文
+  ProcessingContext context = 3;
+
+  // 在放弃之前的重试次数
+  int32 attempts = 4;
+
+}
+
+// ErrorDetails 封装了异常的详细信息
+message ErrorDetails{
+  // 异常的类名，比如 "java.sql.SQLException"
+  string exception_class = 1;
+
+  // 异常的错误消息
+  string error_message = 2;
+
+  // 完整的堆栈跟踪信息
+  string stack_trace = 3;
+}
+
+// Origin 记录了消息的原始位置
+message Origin {
+
+  // 原始 Topic 名称
+  string topic = 1;
+
+  // 原始分区号
+  int32 partition = 2;
+
+  // 原始 offset
+  int64 offset = 3;
+}
+
+// ProcessingContext 处理失败时的上下文
+message ProcessingContext{
+
+  // 本消息消费失败时是哪个 consumer group
+  string consumer_group = 1;
+
+  // 具体的消费者实例 ID
+  string instance_id = 2;
+
+  // 处理失败的时间戳
+  // 我们在文件顶部引入了 "google/protobuf/timestamp.proto"，所以这里可以直接用它
+  google.protobuf.Timestamp failed_at = 3;
+}
+
+
+
