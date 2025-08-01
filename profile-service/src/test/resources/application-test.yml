@@ -1,0 +1,37 @@
+spring:
+  # 测试环境使用嵌入式Redis
+  data:
+    redis:
+      # 使用嵌入式Redis，避免连接外部Redis服务器
+      host: localhost
+      port: 6379
+      timeout: 1000ms
+      
+  # 测试环境使用内存数据库
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    
+  # JPA配置用于测试
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    
+  # 禁用Eureka客户端（测试中不需要）
+  cloud:
+    discovery:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+# 日志配置
+logging:
+  level:
+    com.pulsehub: DEBUG
+    org.springframework.data.redis: DEBUG
+    redis.clients.jedis: DEBUG 
