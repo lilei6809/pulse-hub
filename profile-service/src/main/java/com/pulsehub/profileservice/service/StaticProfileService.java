@@ -104,6 +104,9 @@ public class StaticProfileService {
 
         return profile
                 .map(existing -> {
+                    // existing 就是 Optional 包装下的 StaticUserProfile 对象
+                    // 如果 profile 是 empty(), 就直接返回这个空的 profile
+
                     // 只更新非空字段
                     if (updates.getRealName() != null) existing.setRealName(updates.getRealName());
                     if (updates.getEmail() != null) existing.setEmail(updates.getEmail());
@@ -126,7 +129,7 @@ public class StaticProfileService {
 
     /**
      * CRM场景：获取用户画像
-     * 快速响应，实时性优先
+     * 快速响应，实时性优先, 不缓存空值
      */
     @Cacheable(value = "crm-user-profiles", key = "#userId", unless = "#result.isEmpty()")
     public Optional<StaticUserProfile> getProfileForCRM(String userId) {
@@ -137,6 +140,7 @@ public class StaticProfileService {
     /**
      * Analytics场景：获取用户画像
      * 允许缓存空值，长期缓存
+     * 因为为什么这个 userId 的画像为空这个问题具备分析意义, 所以需要缓存空值
      */
     @Cacheable(value = "analytics-user-profiles", key = "#userId")
     public Optional<StaticUserProfile> getProfileForAnalytics(String userId) {
