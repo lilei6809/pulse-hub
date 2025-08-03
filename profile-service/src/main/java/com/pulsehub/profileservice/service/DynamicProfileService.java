@@ -2,6 +2,8 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.DeviceClass;
+import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -10,6 +12,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.data.redis.core.*;
+
+import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
+
 
 import java.time.Duration;
 import java.time.Instant;
@@ -52,10 +58,13 @@ public class DynamicProfileService {
 
     // Redis模板，用于操作动态画像数据
     private final RedisTemplate<String, Object> redisTemplate;
+
+    private final StaticUserProfileRepository staticProfileRepository;
     
     // 构造方法初始化Redis脚本
-    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate) {
+    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate, StaticUserProfileRepository staticProfileRepository) {
         this.redisTemplate = redisTemplate;
+        this.staticProfileRepository = staticProfileRepository;
         // 初始化原子清理脚本
         this.atomicCleanupScript = RedisScript.of(ATOMIC_CLEANUP_LUA_SCRIPT, List.class);
     }
@@ -96,6 +105,7 @@ public class DynamicProfileService {
     /**
      * 原子清理Lua脚本
      * 保证计数器更新和索引清理的原子性，解决"部分成功"问题
+     *
      */
     private static final String ATOMIC_CLEANUP_LUA_SCRIPT = """
         -- 参数说明:
@@ -326,9 +336,12 @@ public class DynamicProfileService {
 
                     return updateProfile(profile);
                 })
-                // 为什么 profile 为空时需要创建新画像
-                // 因为 动态 profile 是保存在 redis 中的, 过期时间为 7 天, 如果 7 天内没有发生任何的 event, 这个 profile 就会被自动被删除
-                // 再次发生 event 时, 再重新创建
+                /*
+                 为什么 profile 为空时需要创建新画像
+                 因为 动态 profile 是保存在 redis 中的, 过期时间为 7 天, 如果 7 天内没有发生任何的 event, 这个 profile 就会被自动被删除
+                 再次发生 event 时, 再重新创建
+                */
+                //TODO: 当使用 mongodb 后, 先查询 mongodb 中存不存在, 如果存在, 使用 mongodb 中保存的动态 profile
                 .orElseGet(() -> {
                     // 创建新画像
                     DynamicUserProfile newProfile = DynamicUserProfile.builder()
@@ -430,14 +443,14 @@ public class DynamicProfileService {
         // 构建所有Key
         List<String> keys = userIds.stream()
                 .filter(Objects::nonNull) // 因为  List<String> 可能包含了 null
-                .map(this::buildProfileKey) // 对于当前的 string, 输出一个新的 string
-                .collect(Collectors.toList()); // 将所有的 新的 string 转为一个 list
+                .map(this::buildProfileKey) // 对于当前的 string, 输出一个新的 string:  PROFILE_KEY_PREFIX:userId
+                .toList(); // 将所有的 新的 string 转为一个 list
 
-        // 批量获取
+        // 批量获取, 一次性获取所有的 profile
         List<Object> profileObjects = redisTemplate.opsForValue().multiGet(keys);
         List<DynamicUserProfile> profiles = profileObjects.stream()
                 .map(obj -> obj instanceof DynamicUserProfile ? (DynamicUserProfile) obj : null)
-                .collect(Collectors.toList());
+                .toList();
         
         Map<String, DynamicUserProfile> result = new HashMap<>();
 
@@ -456,7 +469,7 @@ public class DynamicProfileService {
     /**
      * 异步批量更新页面浏览数据
      * 用于高并发场景的性能优化
-     * 
+     * //TODO: 适用于使用 kafka stream 进行窗口更新的数据
      * @param userViewCounts 用户ID到浏览次数的映射
      * @return 异步任务Future
      */
@@ -504,6 +517,8 @@ public class DynamicProfileService {
 
             // 保存到Redis
             String key = buildProfileKey(userId);
+
+            // 更新 TTL
             redisTemplate.opsForValue().set(key, profile, DEFAULT_TTL);
             
             // 更新活跃用户索引
@@ -753,21 +768,25 @@ public class DynamicProfileService {
         // 统计最近1小时活跃用户
         List<DynamicUserProfile> activeUsers1h = getActiveUsers(3600);
         
-        // 🚀 高效获取总用户数（使用计数器，O(1)时间复杂度）
-        long totalUsers = getTotalUserCount();
+        // 🚀 高效获取redis 中的用户数（使用计数器，O(1)时间复杂度）
+        long redisUsersCount = getTotalRedisUsersCount();
+
+        // 获取总的用户数
+        long totalUsersCount = staticProfileRepository.count();
 
         ActivityStatistics stats = new ActivityStatistics();
-        stats.setTotalUsers(totalUsers);
+        stats.setTotalUsers(totalUsersCount);
+        stats.setRedisUsers(redisUsersCount);
         stats.setActiveUsers24h(activeUsers24h.size());
         stats.setActiveUsers1h(activeUsers1h.size());
         
         // 计算活跃率
-        if (totalUsers > 0) {
-            stats.setActivityRate24h((double) activeUsers24h.size() / totalUsers * 100);
+        if (totalUsersCount > 0) {
+            stats.setActivityRate24h((double) activeUsers24h.size() / totalUsersCount * 100);
         }
 
-        log.info("📊 用户活跃统计 - 总数: {}, 24h活跃: {}, 1h活跃: {}, 24h活跃率: {:.1f}%", 
-                totalUsers, activeUsers24h.size(), activeUsers1h.size(), stats.getActivityRate24h());
+        log.info("📊 用户活跃统计 - 总数: {}, 24h活跃: {}, 1h活跃: {}, 24h活跃率: {:.1f}%",
+                totalUsersCount, activeUsers24h.size(), activeUsers1h.size(), stats.getActivityRate24h());
 
         return stats;
     }
@@ -874,6 +893,8 @@ public class DynamicProfileService {
      * 使用原子操作 + 智能重试 + 分布式锁的完整解决方案
      * 
      * 整点UTC触发，非阻塞锁，原子性保证数据一致性
+     *
+     * //TODO: 其实不用统一每个 instance 都使用 UTC 时区, 因为任何时区 整点的到来都是同步的
      */
     //TODO: 在 v0.3 版本, 需要将过期的 profile 写入 mongodb
     @Scheduled(cron = "0 0 * * * *", zone = "UTC") // 每小时整点UTC触发
@@ -886,11 +907,14 @@ public class DynamicProfileService {
             log.info("⏭️ 其他实例正在执行清理任务，本次跳过");
             return;
         }
-        
+
+        // 成功获取锁
         try {
             log.info("🔒 获得清理锁，开始执行原子清理...");
-            
+
+            // 首先清理 expiry User index
             // 使用超时保护的异步执行
+            //TODO: 什么情况下需要在方法上加 @Async
             CompletableFuture<CleanupResult> cleanupFuture = CompletableFuture.supplyAsync(() -> {
                 try {
                     return executeAtomicCleanupWithRetry();
@@ -1042,6 +1066,7 @@ public class DynamicProfileService {
         redisTemplate.opsForZSet().add(activeUsersKey, userId, score);
 
         // 只在TTL较短时才重新设置（减少Redis网络调用）
+        //TODO: 这个地方是不是有必要 剩余时间少于2小时时才重设
         Long ttl = redisTemplate.getExpire(activeUsersKey);
         if (ttl == null || ttl < 7200) {  // 剩余时间少于2小时时才重设
             redisTemplate.expire(activeUsersKey, ACTIVE_USERS_TTL);
@@ -1067,6 +1092,7 @@ public class DynamicProfileService {
 
     /**
      * 从设备索引中移除
+     * //TODO: 什么情况下需要这个操作
      */
     private void removeFromDeviceIndex(String userId, DeviceClass deviceClass) {
         String deviceIndexKey = DEVICE_INDEX_KEY + deviceClass.name().toLowerCase();
@@ -1149,8 +1175,12 @@ public class DynamicProfileService {
      * @return 是否成功获取锁
      */
     private boolean tryAcquireDistributedLock(String lockKey, Duration expireTime) {
+
+        // 生成唯一的锁值
         String lockValue = generateLockValue();
-        
+
+        // 如果成功设置锁, 就是 absent and set, 返回 true
+        // 如果锁已经被设置了, 返回 false
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
             lockKey, 
             lockValue, 
@@ -1194,10 +1224,11 @@ public class DynamicProfileService {
     // ===================================================================
 
     /**
-     * 执行原子清理操作
+     * 执行原子清理操作: 同时清理 USER_EXPIRY_INDEX 中的过期 userId 与 计数器减少
      * 使用Lua脚本保证计数器和索引的一致性
      * 
      * @return 清理结果
+     * //TODO: 这个方法还需要再好好看看
      */
     private CleanupResult executeAtomicCleanup() {
         long startTime = System.currentTimeMillis();
@@ -1213,10 +1244,18 @@ public class DynamicProfileService {
                 // 执行单批次原子清理
                 @SuppressWarnings("unchecked")
                 List<Long> batchResult = (List<Long>) redisTemplate.execute(
+                        /**
+                         * KEYS[1]: 过期时间索引 ZSet (user_expiry_index)
+                         * KEYS[2]: 用户计数器 (dynamic_profile_count)
+                         * KEYS[3]: 用户profile前缀 (dynamic_profile:)
+                         * ARGV[1]: 当前时间戳
+                         * ARGV[2]: 批处理大小
+                         * List<Long> batchResult: {actualExpiredCount, candidateCount, remainingCount}
+                         */
                     atomicCleanupScript,
-                    Arrays.asList(USER_EXPIRY_INDEX, USER_COUNT_KEY, PROFILE_KEY_PREFIX),
-                    String.valueOf(currentTimestamp),
-                    String.valueOf(DEFAULT_BATCH_SIZE)
+                    Arrays.asList(USER_EXPIRY_INDEX, USER_COUNT_KEY, PROFILE_KEY_PREFIX), // KEYS[1, 2, 3]
+                    String.valueOf(currentTimestamp), // args,  ARGV[1]
+                    String.valueOf(DEFAULT_BATCH_SIZE) // args,  ARGV[2]
                 );
                 
                 if (batchResult == null || batchResult.size() < 3) {
@@ -1284,6 +1323,8 @@ public class DynamicProfileService {
             log.warn("原子清理执行失败，准备重试: {}", e.getMessage());
             
             // 根据异常类型决定是否重试
+            //TODO: 重新抛出 e 会被 @Retryable 捕获吗?
+            // 为什么 else 中抛出 运行时异常就不会重试了
             if (isRetryableException(e)) {
                 throw e; // 重新抛出，让@Retryable处理
             } else {
@@ -1384,12 +1425,12 @@ public class DynamicProfileService {
     }
 
     /**
-     * 获取总用户数
+     * 获取 redis 中的总用户数
      * 使用Redis计数器实现O(1)时间复杂度的高效统计
      * 
-     * @return 总用户数
+     * @return redis 中的总用户数
      */
-    public long getTotalUserCount() {
+    private long getTotalRedisUsersCount() {
         String countStr = (String) redisTemplate.opsForValue().get(USER_COUNT_KEY);
         if (countStr == null) {
             // 首次使用时，初始化计数器
@@ -1481,14 +1522,14 @@ public class DynamicProfileService {
         
         try {
             // 使用RedisTemplate的scan方法，自动处理游标和分页
-            org.springframework.data.redis.core.ScanOptions options = 
-                    org.springframework.data.redis.core.ScanOptions.scanOptions()
+            ScanOptions options =
+                    ScanOptions.scanOptions()
                             .match(pattern)
                             .count(1000)  // 每次扫描1000个key，避免阻塞
                             .build();
             
             // 使用try-with-resources确保资源正确关闭
-            try (org.springframework.data.redis.core.Cursor<String> cursor = 
+            try (Cursor<String> cursor =
                     redisTemplate.scan(options)) {
                 
                 while (cursor.hasNext()) {
@@ -1523,31 +1564,38 @@ public class DynamicProfileService {
             // 清除现有的过期时间索引，重新构建
             redisTemplate.delete(USER_EXPIRY_INDEX);
             
-            // 使用RedisTemplate的scan方法，自动处理游标和分页
-            org.springframework.data.redis.core.ScanOptions options = 
-                    org.springframework.data.redis.core.ScanOptions.scanOptions()
-                            .match(pattern)
+            //
+            /**
+             * 使用RedisTemplate的scan方法，自动处理游标和分页
+             */
+            ScanOptions options =
+                    ScanOptions.scanOptions()
+                            .match(pattern)  // dynamic_profile:*
                             .count(1000)  // 每次扫描1000个key，避免阻塞
                             .build();
             
             // 使用try-with-resources确保资源正确关闭
-            try (org.springframework.data.redis.core.Cursor<String> cursor = 
+            try (Cursor<String> cursor =
                     redisTemplate.scan(options)) {
                 
                 while (cursor.hasNext()) {
                     String key = cursor.next();
                     count++;
-                    
+
                     // 从key中提取userId
+                    // 删除 key 前缀 "dynamic_profile:", 只保留 userId
+                    // userId 就是纯净的 id, 可以供其他系统使用,
+                    //比如查询数据库, 就不能直接使用 key, 需要先删除前缀
                     String userId = key.replace(PROFILE_KEY_PREFIX, "");
                     
                     // 获取该key的TTL
                     Long ttl = redisTemplate.getExpire(key);
                     if (ttl != null && ttl > 0) {
-                        // 计算过期时间戳
+                        // 计算 key 的过期时间戳
                         long expiryTimestamp = Instant.now().plusSeconds(ttl).toEpochMilli();
-                        
+
                         // 重建过期时间索引
+                        // 此处就不能直接使用 key, 需要先删除前缀
                         redisTemplate.opsForZSet().add(USER_EXPIRY_INDEX, userId, expiryTimestamp);
                     }
                 }
@@ -1594,6 +1642,7 @@ public class DynamicProfileService {
      */
     public static class ActivityStatistics {
         private long totalUsers;
+        private long redisUsers;
         private long activeUsers24h;
         private long activeUsers1h;
         private double activityRate24h;
@@ -1610,5 +1659,13 @@ public class DynamicProfileService {
 
         public double getActivityRate24h() { return activityRate24h; }
         public void setActivityRate24h(double activityRate24h) { this.activityRate24h = activityRate24h; }
+
+        public long getRedisUsers() {
+            return redisUsers;
+        }
+
+        public void setRedisUsers(long redisUsers) {
+            this.redisUsers = redisUsers;
+        }
     }
 }
