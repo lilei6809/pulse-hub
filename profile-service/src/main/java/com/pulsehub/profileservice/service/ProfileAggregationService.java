@@ -2,7 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.UserProfileSnapshot;
-import com.pulsehub.profileservice.entity.StaticUserProfile;
+import com.pulsehub.profileservice.domain.entity.StaticUserProfile;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

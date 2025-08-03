@@ -1,4 +1,4 @@
-package com.pulsehub.profileservice.entity;
+package com.pulsehub.profileservice.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

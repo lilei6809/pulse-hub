@@ -1,13 +1,12 @@
 package com.pulsehub.profileservice.service;
 
-import com.pulsehub.profileservice.entity.UserProfile;
+import com.pulsehub.profileservice.domain.entity.UserProfile;
 import com.pulsehub.profileservice.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 

@@ -1,6 +1,6 @@
 package com.pulsehub.profileservice.repository;
 
-import com.pulsehub.profileservice.entity.UserProfile;
+import com.pulsehub.profileservice.domain.entity.UserProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

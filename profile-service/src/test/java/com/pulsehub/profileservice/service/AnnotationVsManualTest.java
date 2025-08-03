@@ -1,6 +1,6 @@
 package com.pulsehub.profileservice.service;
 
-import com.pulsehub.profileservice.entity.UserProfile;
+import com.pulsehub.profileservice.domain.entity.UserProfile;
 import com.pulsehub.profileservice.repository.UserProfileRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;

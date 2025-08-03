@@ -1,7 +1,7 @@
 package com.pulsehub.profileservice.controller;
 
 import com.pulsehub.profileservice.controller.dto.CreateProfileRequest;
-import com.pulsehub.profileservice.entity.UserProfile;
+import com.pulsehub.profileservice.domain.entity.UserProfile;
 import com.pulsehub.profileservice.service.ProfileService;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;

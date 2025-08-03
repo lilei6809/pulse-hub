@@ -2,9 +2,12 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.DeviceClass;
+import com.pulsehub.profileservice.domain.event.CleanupCompletedEvent;
+import com.pulsehub.profileservice.domain.event.CleanupFailedEvent;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -60,11 +64,16 @@ public class DynamicProfileService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     private final StaticUserProfileRepository staticProfileRepository;
+
+    private final ApplicationEventPublisher eventPublisher;
+
+//    private final Executor cleanupTaskExecutor;
     
     // 构造方法初始化Redis脚本
-    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate, StaticUserProfileRepository staticProfileRepository) {
+    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate, StaticUserProfileRepository staticProfileRepository, ApplicationEventPublisher eventPublisher) {
         this.redisTemplate = redisTemplate;
         this.staticProfileRepository = staticProfileRepository;
+        this.eventPublisher = eventPublisher;
         // 初始化原子清理脚本
         this.atomicCleanupScript = RedisScript.of(ATOMIC_CLEANUP_LUA_SCRIPT, List.class);
     }
@@ -897,48 +906,43 @@ public class DynamicProfileService {
      * //TODO: 其实不用统一每个 instance 都使用 UTC 时区, 因为任何时区 整点的到来都是同步的
      */
     //TODO: 在 v0.3 版本, 需要将过期的 profile 写入 mongodb
+    @Async("cleanupTaskExecutor")
     @Scheduled(cron = "0 0 * * * *", zone = "UTC") // 每小时整点UTC触发
     public void cleanupExpiredUsers() {
         Instant scheduleTime = Instant.now();
         log.info("🕐 开始增强版TTL感知清理 - UTC时间: {}", scheduleTime);
         
-        // 尝试获取分布式锁 (非阻塞)
+        // 尝试获取分布式锁 (非阻塞), 50分钟自动过期
         if (!tryAcquireDistributedLock(CLEANUP_LOCK_KEY, LOCK_EXPIRE_TIME)) {
             log.info("⏭️ 其他实例正在执行清理任务，本次跳过");
             return;
         }
 
         // 成功获取锁
-        try {
-            log.info("🔒 获得清理锁，开始执行原子清理...");
+        String taskId = UUID.randomUUID().toString();
 
-            // 首先清理 expiry User index
-            // 使用超时保护的异步执行
-            //TODO: 什么情况下需要在方法上加 @Async
-            CompletableFuture<CleanupResult> cleanupFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    return executeAtomicCleanupWithRetry();
-                } catch (Exception e) {
-                    log.error("异步清理执行失败", e);
-                    throw new RuntimeException("异步清理失败", e);
-                }
-            });
-            
-            // 等待完成，但不超过最大执行时间
-            CleanupResult result = cleanupFuture.get(
-                MAX_EXECUTION_TIME.toMillis(), 
-                TimeUnit.MILLISECONDS
-            );
-            
-            log.info("✅ TTL感知清理成功完成: {}", result);
-            
-        } catch (TimeoutException e) {
-            log.error("⏰ 清理任务超时，强制终止。任务可能存在性能问题", e);
-            
-        } catch (Exception e) {
-            log.error("❌ TTL感知清理最终失败，等待下个整点重试", e);
-            
-        } finally {
+        try {
+            CleanupResult result = executeAtomicCleanupWithRetry();
+
+            // 发布成功事件
+            eventPublisher.publishEvent(CleanupCompletedEvent.builder()
+                    .taskId(taskId)
+                    .timestamp(Instant.now())
+                    .totalExpiredCount(result.getTotalExpiredCount())
+                    .totalCandidateCount(result.getTotalCandidateCount())
+                    .build());
+
+        }
+        //TODO: 但是超时异常怎么处理呢?
+        catch (Exception e) {
+            // 发布失败事件
+            eventPublisher.publishEvent(CleanupFailedEvent.builder()
+                    .taskId(taskId)
+                    .errorMessage(e.getMessage())
+                    .timestamp(Instant.now())
+                    .build());
+        }
+        finally {
             // 确保锁一定会被释放
             try {
                 releaseDistributedLock(CLEANUP_LOCK_KEY);
@@ -947,6 +951,48 @@ public class DynamicProfileService {
                 log.error("❌ 释放分布式锁失败", e);
             }
         }
+
+
+        // 成功获取锁
+//        try {
+//            log.info("🔒 获得清理锁，开始执行原子清理...");
+//
+//            // 首先清理 expiry User index
+//            // 使用超时保护的异步执行
+//            //TODO: 什么情况下需要在方法上加 @Async
+//            CompletableFuture<CleanupResult> cleanupFuture = CompletableFuture.supplyAsync(() -> {
+//                try {
+//                    return executeAtomicCleanupWithRetry();
+//                } catch (Exception e) {
+//                    log.error("异步清理执行失败", e);
+//                    throw new RuntimeException("异步清理失败", e);
+//                }
+//            }); // 使用我们配置的自定义线程池
+//
+//            // 等待完成，但不超过最大执行时间
+//            // ❌ 关键问题：调度线程可能在这里阻塞等待45分钟！ CompletableFuture 的 get() 方法是阻塞线程的
+//            CleanupResult result = cleanupFuture.get(
+//                MAX_EXECUTION_TIME.toMillis(),
+//                TimeUnit.MILLISECONDS
+//            );
+//
+//            log.info("✅ TTL感知清理成功完成: {}", result);
+//
+//        } catch (TimeoutException e) {
+//            log.error("⏰ 清理任务超时，强制终止。任务可能存在性能问题", e);
+//
+//        } catch (Exception e) {
+//            log.error("❌ TTL感知清理最终失败，等待下个整点重试", e);
+//
+//        } finally {
+//            // 确保锁一定会被释放
+//            try {
+//                releaseDistributedLock(CLEANUP_LOCK_KEY);
+//                log.info("🔓 清理锁已释放");
+//            } catch (Exception e) {
+//                log.error("❌ 释放分布式锁失败", e);
+//            }
+//        }
     }
     
     /**

@@ -1,6 +1,6 @@
 package com.pulsehub.profileservice.repository;
 
-import com.pulsehub.profileservice.entity.StaticUserProfile;
+import com.pulsehub.profileservice.domain.entity.StaticUserProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

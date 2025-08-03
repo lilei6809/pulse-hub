@@ -3,7 +3,7 @@ package com.pulsehub.profileservice.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.pulsehub.profileservice.entity.StaticUserProfile;
+import com.pulsehub.profileservice.domain.entity.StaticUserProfile;
 import lombok.Builder;
 import lombok.Data;
 

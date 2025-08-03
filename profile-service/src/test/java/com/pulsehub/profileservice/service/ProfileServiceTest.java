@@ -1,7 +1,7 @@
 package com.pulsehub.profileservice.service;
 
 // === 核心测试框架导入 ===
-import com.pulsehub.profileservice.entity.UserProfile;
+import com.pulsehub.profileservice.domain.entity.UserProfile;
 import com.pulsehub.profileservice.repository.UserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;  // 测试前置方法注解
 import org.junit.jupiter.api.Test;       // 测试方法注解
@@ -24,7 +24,6 @@ import org.springframework.cache.concurrent.ConcurrentMapCacheManager; // 测试
 import org.springframework.context.annotation.Bean;                // Bean定义注解
 
 // === 标准库导入 ===
-import java.time.LocalDateTime; // 时间处理（虽然当前测试中未使用）
 import java.util.Optional;      // Optional类型支持
 
 // === 断言和Mock工具导入 ===
