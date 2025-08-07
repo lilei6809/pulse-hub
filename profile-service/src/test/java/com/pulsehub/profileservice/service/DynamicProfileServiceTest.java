@@ -139,7 +139,12 @@ class DynamicProfileServiceTest {
         ArgumentCaptor<String> zsetKeyCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object> zsetUserIdCaptor = ArgumentCaptor.forClass(Object.class);
         ArgumentCaptor<Double> zsetScoreCaptor = ArgumentCaptor.forClass(Double.class);
-        
+
+        // 为什么 createProfile() 调用了 3 此 zset
+        // 1 次: addToActiveUsersIndex  redisTemplate.opsForZSet().add(activeUsersKey, userId, score);
+        // 2 次: updatePageViewIndex   redisTemplate.opsForZSet().add(PAGEVIEW_INDEX_KEY, userId, pageViewCount.doubleValue());
+        // 3 次: recordUserExpiryTime  redisTemplate.opsForZSet().add(USER_EXPIRY_INDEX, userId, expiryTimestamp);
+
         verify(zSetOperations, times(3)).add(zsetKeyCaptor.capture(), zsetUserIdCaptor.capture(), zsetScoreCaptor.capture());
         
         // 验证所有捕获的参数
@@ -222,6 +227,7 @@ class DynamicProfileServiceTest {
         
         // 验证时间设置合理性（应该接近当前时间）
         Instant now = Instant.now();
+        // 验证更新时间
         assertThat(result.getUpdatedAt()).isBetween(
             now.minusSeconds(5), now.plusSeconds(5)
         );
