@@ -9,6 +9,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.time.Duration;
 import java.util.Random;
@@ -224,53 +226,51 @@ public class CacheConfig {
     }
 
     /**
-     * 🔧 Redis模板配置
+     * 🔧 优化的Redis模板配置
+     * 
+     * 【重要升级】
+     * 修复了Java 8时间类型序列化问题，支持Instant、LocalDateTime等类型
      * 
      * 【技术说明】
      * RedisTemplate是Spring Data Redis提供的核心操作类，用于直接操作Redis。
      * 相比于Spring Cache的注解式缓存，RedisTemplate提供了更细粒度的控制。
      * 
-     * 【使用场景】
-     * 1. 事件驱动缓存失效：通过Kafka事件手动清除缓存
-     * 2. 缓存预热：批量加载热点数据到缓存
-     * 3. 复杂缓存操作：非标准的缓存读写逻辑
-     * 4. 缓存监控：获取缓存统计信息和健康状态
-     * 
-     * 【序列化策略】
-     * 1. Key序列化：StringRedisSerializer
-     *    - 优势：Redis中的key可读性好，便于调试
-     *    - 用途：缓存key、Hash key的序列化
-     * 
-     * 2. Value序列化：GenericJackson2JsonRedisSerializer
-     *    - 优势：支持复杂对象，跨语言兼容性好
-     *    - 用途：缓存值、Hash value的序列化
-     *    - 注意：包含类型信息，支持多态序列化
-     * 
-     * 【性能考虑】
-     * 1. 连接池：依赖RedisConnectionFactory的连接池配置
-     * 2. 序列化开销：JSON序列化相比二进制略慢，但可读性好
-     * 3. 内存占用：JSON格式相比二进制占用空间稍大
+     * 【序列化策略优化】
+     * 1. Key序列化：StringRedisSerializer（保持不变）
+     * 2. Value序列化：支持Java 8时间的GenericJackson2JsonRedisSerializer
+     *    - ✅ 修复：添加JavaTimeModule支持
+     *    - ✅ 优化：使用ISO-8601时间格式，可读性更好
+     *    - ✅ 兼容：支持向后兼容和未知属性忽略
      * 
      * @param connectionFactory Redis连接工厂，提供连接池管理
-     * @return RedisTemplate<String, Object> 配置好的Redis操作模板
+     * @return RedisTemplate<String, Object> 优化后的Redis操作模板
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        // 使用String序列化器作为key的序列化器
-        // 优势：Redis中的key具有良好的可读性，便于运维和调试
+        // Key序列化保持不变
         template.setKeySerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
         
-        // 使用JSON序列化器作为value的序列化器
-        // 优势：支持复杂对象序列化，保持类型信息，跨语言兼容
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
+        // 创建支持Java 8时间类型的ObjectMapper
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(
+            com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+        );
+        objectMapper.configure(
+            com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+            false
+        );
+        
+        // 使用优化的JSON序列化器
+        GenericJackson2JsonRedisSerializer serializer = 
+            new GenericJackson2JsonRedisSerializer(objectMapper);
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
         
-        // 初始化模板配置
         template.afterPropertiesSet();
         return template;
     }

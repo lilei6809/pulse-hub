@@ -211,7 +211,7 @@ public class DynamicUserProfile implements Serializable {
     }
 
     public boolean isValid(){
-        return userId != null && !userId.isEmpty();
+        return userId != null && !userId.trim().isEmpty();
     }
 
 }

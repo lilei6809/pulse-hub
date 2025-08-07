@@ -1,6 +1,7 @@
 package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
+import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.event.CleanupCompletedEvent;
 import com.pulsehub.profileservice.domain.event.CleanupFailedEvent;
@@ -60,20 +61,25 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DynamicProfileService {
 
-    // Redis模板，用于操作动态画像数据
+    // Redis模板，用于操作动态画像数据（已优化：支持Java 8时间类型）
     private final RedisTemplate<String, Object> redisTemplate;
 
     private final StaticUserProfileRepository staticProfileRepository;
 
     private final ApplicationEventPublisher eventPublisher;
 
+    private final DynamicProfileSerializer dynamicProfileSerializer;
+
 //    private final Executor cleanupTaskExecutor;
     
     // 构造方法初始化Redis脚本
-    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate, StaticUserProfileRepository staticProfileRepository, ApplicationEventPublisher eventPublisher) {
+    public DynamicProfileService(RedisTemplate<String, Object> redisTemplate,
+                                 StaticUserProfileRepository staticProfileRepository,
+                                 ApplicationEventPublisher eventPublisher, DynamicProfileSerializer dynamicProfileSerializer) {
         this.redisTemplate = redisTemplate;
         this.staticProfileRepository = staticProfileRepository;
         this.eventPublisher = eventPublisher;
+        this.dynamicProfileSerializer = dynamicProfileSerializer;
         // 初始化原子清理脚本
         this.atomicCleanupScript = RedisScript.of(ATOMIC_CLEANUP_LUA_SCRIPT, List.class);
     }
@@ -215,10 +221,16 @@ public class DynamicProfileService {
             dynamicProfile.setRecentDeviceTypes(new HashSet<>());
         }
 
-        // 保存到Redis
+        // 保存到Redis（RedisTemplate已优化支持Java 8时间类型）
         // key:    dynamic_profile:user123
         String key = buildProfileKey(dynamicProfile.getUserId());
-        redisTemplate.opsForValue().set(key, dynamicProfile, DEFAULT_TTL);
+        String profileJson = dynamicProfileSerializer.serialize(dynamicProfile);
+
+        if (profileJson == null) {
+            return null;
+        }
+
+        redisTemplate.opsForValue().set(key, profileJson, DEFAULT_TTL);
         
         // 如果用户当前活跃，添加到活跃用户索引
         addToActiveUsersIndex(dynamicProfile.getUserId(), dynamicProfile.getLastActiveAt());
@@ -253,7 +265,12 @@ public class DynamicProfileService {
         }
 
         String key = buildProfileKey(userId);
-        DynamicUserProfile profile = (DynamicUserProfile) redisTemplate.opsForValue().get(key);
+        String serializedProfile = (String) redisTemplate.opsForValue().get(key);
+        
+        DynamicUserProfile profile = null;
+        if (serializedProfile != null) {
+            profile = dynamicProfileSerializer.deserialize(serializedProfile);
+        }
         
         if (profile != null) {
             log.debug("🔍 获取动态用户画像: {} (活跃等级: {})", 
@@ -285,10 +302,14 @@ public class DynamicProfileService {
         // 更新 活跃时间
         dynamicProfile.updateLastActiveAt();
 
-        // 保存到Redis
+        // 保存到Redis，使用专用序列化器
         String key = buildProfileKey(dynamicProfile.getUserId());
-        // 同时更新最新的 TTL
-        redisTemplate.opsForValue().set(key, dynamicProfile, DEFAULT_TTL);
+        String serializedProfile = dynamicProfileSerializer.serialize(dynamicProfile);
+        if (serializedProfile != null) {
+            redisTemplate.opsForValue().set(key, serializedProfile, DEFAULT_TTL);
+        } else {
+            throw new RuntimeException("序列化用户画像失败: " + dynamicProfile.getUserId());
+        }
         
         // 更新活跃用户索引
         addToActiveUsersIndex(dynamicProfile.getUserId(), dynamicProfile.getLastActiveAt());
@@ -455,10 +476,15 @@ public class DynamicProfileService {
                 .map(this::buildProfileKey) // 对于当前的 string, 输出一个新的 string:  PROFILE_KEY_PREFIX:userId
                 .toList(); // 将所有的 新的 string 转为一个 list
 
-        // 批量获取, 一次性获取所有的 profile
+        // 批量获取, 一次性获取所有的 profile（序列化字符串）
         List<Object> profileObjects = redisTemplate.opsForValue().multiGet(keys);
         List<DynamicUserProfile> profiles = profileObjects.stream()
-                .map(obj -> obj instanceof DynamicUserProfile ? (DynamicUserProfile) obj : null)
+                .map(obj -> {
+                    if (obj instanceof String) {
+                        return dynamicProfileSerializer.deserialize((String) obj);
+                    }
+                    return null;
+                })
                 .toList();
         
         Map<String, DynamicUserProfile> result = new HashMap<>();
@@ -524,11 +550,14 @@ public class DynamicProfileService {
                         .build();
             }
 
-            // 保存到Redis
+            // 保存到Redis，使用专用序列化器
             String key = buildProfileKey(userId);
-
-            // 更新 TTL
-            redisTemplate.opsForValue().set(key, profile, DEFAULT_TTL);
+            String serializedProfile = dynamicProfileSerializer.serialize(profile);
+            if (serializedProfile != null) {
+                redisTemplate.opsForValue().set(key, serializedProfile, DEFAULT_TTL);
+            } else {
+                throw new RuntimeException("序列化用户画像失败: " + userId);
+            }
             
             // 更新活跃用户索引
             addToActiveUsersIndex(userId, now);

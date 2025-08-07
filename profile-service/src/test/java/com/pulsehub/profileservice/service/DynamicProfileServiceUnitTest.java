@@ -2,6 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
+import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,10 +39,13 @@ import static org.mockito.Mockito.lenient;
  * - 测试正常流程和边界条件
  */
 @ExtendWith(MockitoExtension.class)
-class DynamicProfileServiceTest {
+class DynamicProfileServiceUnitTest {
 
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
+    
+    @Mock
+    private DynamicProfileSerializer dynamicProfileSerializer;
     
     @Mock
     private StaticUserProfileRepository staticProfileRepository;
@@ -70,9 +74,10 @@ class DynamicProfileServiceTest {
     void setUp() {
         // 初始化被测试的服务
         dynamicProfileService = new DynamicProfileService(
-            redisTemplate, 
-            staticProfileRepository, 
-            eventPublisher
+            redisTemplate,
+            staticProfileRepository,
+            eventPublisher,
+            dynamicProfileSerializer
         );
         
         // 设置 Redis 模板的基本行为（使用lenient以避免不必要的stubbing异常）
@@ -93,6 +98,10 @@ class DynamicProfileServiceTest {
                 .deviceClassification(DeviceClass.MOBILE)
                 .recentDeviceTypes(Set.of(DeviceClass.MOBILE))
                 .build();
+        
+        // 模拟序列化器的行为
+        String serializedProfile = "{\"userId\":\"" + TEST_USER_ID + "\",\"pageViewCount\":10}";
+        when(dynamicProfileSerializer.serialize(any(DynamicUserProfile.class))).thenReturn(serializedProfile);
         
         // 模拟 Redis 操作的返回值
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
@@ -337,26 +346,29 @@ class DynamicProfileServiceTest {
                 .userId("   ")
                 .pageViewCount(10L)
                 .build();
+
+        assertThatThrownBy(()->dynamicProfileService.createProfile(profileWithBlankId))
+        .isInstanceOf(IllegalArgumentException.class).hasMessage("用户ID不能为空");
         
-        // 模拟Redis操作
-        when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
-        when(redisTemplate.getExpire(anyString())).thenReturn(3600L);
-        
-        // ========================================
-        // WHEN - 执行被测试的方法
-        // ========================================
-        
-        DynamicUserProfile result = dynamicProfileService.createProfile(profileWithBlankId);
-        
-        // ========================================
-        // THEN - 验证创建成功
-        // ========================================
-        
-        assertThat(result).isNotNull();
-        assertThat(result.getUserId()).isEqualTo("   ");
-        
-        // 验证基本Redis操作被调用
-        verify(valueOperations).set(eq(PROFILE_KEY_PREFIX + "   "), any(DynamicUserProfile.class), eq(DEFAULT_TTL));
+//        // 模拟Redis操作
+//        when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
+//        when(redisTemplate.getExpire(anyString())).thenReturn(3600L);
+//
+//        // ========================================
+//        // WHEN - 执行被测试的方法
+//        // ========================================
+//
+//        DynamicUserProfile result = dynamicProfileService.createProfile(profileWithBlankId);
+//
+//        // ========================================
+//        // THEN - 验证创建成功
+//        // ========================================
+//
+//        assertThat(result).isNotNull();
+//        assertThat(result.getUserId()).isEqualTo("   ");
+//
+//        // 验证基本Redis操作被调用
+//        verify(valueOperations).set(eq(PROFILE_KEY_PREFIX + "   "), any(DynamicUserProfile.class), eq(DEFAULT_TTL));
     }
 
     @Test
@@ -393,11 +405,28 @@ class DynamicProfileServiceTest {
         
         // 2. 索引更新操作（总共3次ZSet操作）
         verify(zSetOperations, times(3)).add(anyString(), eq(TEST_USER_ID), anyDouble());
+        // anyString() 表示第一次参数我们能确定的是 string, 不能确定具体的内容, 因为 zset 3次调用时的 key 都不同
+        // eq(TEST_USER_ID) 第二个参数我们可以确定都是 TEST_USER_ID
+        // anyDouble() 我们不能确定具体的 double
         
         // 验证具体的索引更新
+        // 活跃用户索引：用于快速查询最近活跃的用户
         verify(zSetOperations).add(eq(ACTIVE_USERS_KEY + "recent"), eq(TEST_USER_ID), anyDouble());
+        // Key: "active_users:recent"
+        // Member: "test-user-123"
+        // Score: 时间戳（anyDouble()因为时间会变化）
+
+        // 页面浏览数索引：用于快速查询高参与度用户
         verify(zSetOperations).add(eq(PAGEVIEW_INDEX_KEY), eq(TEST_USER_ID), eq(50.0));
+        // Key: "pageview_index"
+        // Member: "test-user-123"
+        // Score: 50.0（正好对应测试数据中的50L pageViewCount）
+
+        // 过期时间索引：用于TTL感知的用户生命周期管理
         verify(zSetOperations).add(eq(USER_EXPIRY_INDEX), eq(TEST_USER_ID), anyDouble());
+        // Key: "user_expiry_index"
+        // Member: "test-user-123"
+        // Score: 过期时间戳（anyDouble()因为是计算出来的）
         
         // 3. 计数器递增
         verify(valueOperations).increment(USER_COUNT_KEY);

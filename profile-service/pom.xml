@@ -109,6 +109,14 @@
             <artifactId>kafka</artifactId>
             <scope>test</scope>
         </dependency>
+        
+        <!-- Embedded Redis for Integration Tests -->
+        <dependency>
+            <groupId>it.ozimov</groupId>
+            <artifactId>embedded-redis</artifactId>
+            <version>0.7.3</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-protobuf-serializer</artifactId>
