@@ -25,6 +25,10 @@ spring:
       ddl-auto: create-drop
     show-sql: false
     
+  # 禁用Kafka（测试中不需要）
+  kafka:
+    enabled: false
+    
   # 禁用Eureka客户端（测试中不需要）
   cloud:
     discovery:

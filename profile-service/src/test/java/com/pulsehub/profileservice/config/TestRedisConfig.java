@@ -3,6 +3,7 @@ package com.pulsehub.profileservice.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
  * - 避免Bean定义冲突
  */
 @TestConfiguration
+@ComponentScan(basePackages = "com.pulsehub.profileservice")
 public class TestRedisConfig {
 
     /**

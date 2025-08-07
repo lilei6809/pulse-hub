@@ -1,5 +1,6 @@
 package com.pulsehub.profileservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
 import com.pulsehub.profileservice.domain.DeviceClass;
@@ -68,14 +69,16 @@ public class DynamicProfileService {
 
     private final ApplicationEventPublisher eventPublisher;
 
+
     private final DynamicProfileSerializer dynamicProfileSerializer;
 
-//    private final Executor cleanupTaskExecutor;
+    //    private final Executor cleanupTaskExecutor;
     
     // 构造方法初始化Redis脚本
     public DynamicProfileService(RedisTemplate<String, Object> redisTemplate,
                                  StaticUserProfileRepository staticProfileRepository,
-                                 ApplicationEventPublisher eventPublisher, DynamicProfileSerializer dynamicProfileSerializer) {
+                                 ApplicationEventPublisher eventPublisher,
+                                 DynamicProfileSerializer dynamicProfileSerializer) {
         this.redisTemplate = redisTemplate;
         this.staticProfileRepository = staticProfileRepository;
         this.eventPublisher = eventPublisher;
@@ -293,40 +296,59 @@ public class DynamicProfileService {
             throw new IllegalArgumentException("用户ID不能为空");
         }
 
-        // 递增版本号和更新时间
-        dynamicProfile.setUpdatedAt(Instant.now());
-        if (dynamicProfile.getVersion() != null) {
-            dynamicProfile.setVersion(dynamicProfile.getVersion() + 1);
+
+        Optional<DynamicUserProfile> originalProfile = getProfile(dynamicProfile.getUserId());
+        DynamicUserProfile original = null;
+        if (originalProfile.isPresent()) {
+            original = originalProfile.get();
+            original.getRecentDeviceTypes().add(dynamicProfile.getDeviceClassification());
+            original.setPageViewCount(original.getPageViewCount() + dynamicProfile.getPageViewCount());
+
+            // 递增版本号和更新时间
+            original.setUpdatedAt(Instant.now());
+            original.setLastActiveAt(Instant.now());
+            original.setVersion(original.getVersion() + 1);
+
+        } else {
+            // 必然不会走这一步, 因为如果 profile 不存在, 会调用 createProfile
+            return null;
         }
 
-        // 更新 活跃时间
-        dynamicProfile.updateLastActiveAt();
+
+
+//        if (dynamicProfile.getVersion() != null) {
+//            dynamicProfile.setVersion(dynamicProfile.getVersion() + 1);
+//        }
+//
+//        // 更新 活跃时间
+//        dynamicProfile.updateLastActiveAt();
+
 
         // 保存到Redis，使用专用序列化器
-        String key = buildProfileKey(dynamicProfile.getUserId());
-        String serializedProfile = dynamicProfileSerializer.serialize(dynamicProfile);
+        String key = buildProfileKey(original.getUserId());
+        String serializedProfile = dynamicProfileSerializer.serialize(original);
         if (serializedProfile != null) {
             redisTemplate.opsForValue().set(key, serializedProfile, DEFAULT_TTL);
         } else {
-            throw new RuntimeException("序列化用户画像失败: " + dynamicProfile.getUserId());
+            throw new RuntimeException("序列化用户画像失败: " + original.getUserId());
         }
         
         // 更新活跃用户索引
-        addToActiveUsersIndex(dynamicProfile.getUserId(), dynamicProfile.getLastActiveAt());
+        addToActiveUsersIndex(original.getUserId(), original.getLastActiveAt());
         
         // 更新页面浏览数索引
-        updatePageViewIndex(dynamicProfile.getUserId(), dynamicProfile.getPageViewCount());
+        updatePageViewIndex(original.getUserId(), original.getPageViewCount());
         
         // 📅 更新用户过期时间（因为TTL被重置了）
-        recordUserExpiryTime(dynamicProfile.getUserId());
+        recordUserExpiryTime(original.getUserId());
 
         
         log.debug("🔄 更新动态用户画像: {} (版本: {}, 页面浏览: {})", 
-                dynamicProfile.getUserId(), 
-                dynamicProfile.getVersion(),
-                dynamicProfile.getPageViewCount());
+                original.getUserId(),
+                original.getVersion(),
+                original.getPageViewCount());
         
-        return dynamicProfile;
+        return original;
     }
 
     // ===================================================================
@@ -483,9 +505,20 @@ public class DynamicProfileService {
                     if (obj instanceof String) {
                         return dynamicProfileSerializer.deserialize((String) obj);
                     }
+                    // Handle cases where Redis might return other types or null
+                    if (obj instanceof LinkedHashMap) {
+                        // Fallback for misconfigured RedisTemplate
+                        try {
+                            return new ObjectMapper().convertValue(obj, DynamicUserProfile.class);
+                        } catch (Exception e) {
+                            log.warn("Could not convert LinkedHashMap to DynamicUserProfile", e);
+                            return null;
+                        }
+                    }
                     return null;
                 })
-                .toList();
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
         
         Map<String, DynamicUserProfile> result = new HashMap<>();
 

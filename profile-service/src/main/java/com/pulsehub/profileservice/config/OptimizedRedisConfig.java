@@ -65,7 +65,7 @@ public class OptimizedRedisConfig {
      */
     @Bean
     @Primary
-    public RedisTemplate<String, Object> redisTemplate(
+    public RedisTemplate<String, Object> OptRedisTemplate(
             RedisConnectionFactory connectionFactory,
             ObjectMapper redisObjectMapper) {
         

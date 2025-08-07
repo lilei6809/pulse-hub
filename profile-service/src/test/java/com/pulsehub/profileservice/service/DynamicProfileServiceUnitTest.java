@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -44,8 +45,7 @@ class DynamicProfileServiceUnitTest {
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
     
-    @Mock
-    private DynamicProfileSerializer dynamicProfileSerializer;
+
     
     @Mock
     private StaticUserProfileRepository staticProfileRepository;
@@ -60,7 +60,9 @@ class DynamicProfileServiceUnitTest {
     private ZSetOperations<String, Object> zSetOperations;
     
     private DynamicProfileService dynamicProfileService;
-    
+
+    private DynamicProfileSerializer dynamicProfileSerializer; // DynamicProfileSerializer 是一个工具类, 无外部依赖, 所以不要使用 @Mock
+
     // 测试常量
     private static final String TEST_USER_ID = "test-user-123";
     private static final String PROFILE_KEY_PREFIX = "dynamic_profile:";
@@ -72,6 +74,9 @@ class DynamicProfileServiceUnitTest {
 
     @BeforeEach
     void setUp() {
+        // 初始化真实的序列化器
+        dynamicProfileSerializer = new DynamicProfileSerializer();
+        
         // 初始化被测试的服务
         dynamicProfileService = new DynamicProfileService(
             redisTemplate,
@@ -99,24 +104,21 @@ class DynamicProfileServiceUnitTest {
                 .recentDeviceTypes(Set.of(DeviceClass.MOBILE))
                 .build();
         
-        // 模拟序列化器的行为
-        String serializedProfile = "{\"userId\":\"" + TEST_USER_ID + "\",\"pageViewCount\":10}";
-        when(dynamicProfileSerializer.serialize(any(DynamicUserProfile.class))).thenReturn(serializedProfile);
-        
+
         // 模拟 Redis 操作的返回值
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
         when(redisTemplate.getExpire(anyString())).thenReturn(3600L); // 1小时TTL
-        
+
         // ========================================
         // WHEN - 执行被测试的方法
         // ========================================
-        
+
         DynamicUserProfile result = dynamicProfileService.createProfile(inputProfile);
-        
+
         // ========================================
         // THEN - 验证结果和行为
         // ========================================
-        
+
         // 1. 验证返回的profile对象
         assertThat(result).isNotNull();
         assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
@@ -126,23 +128,32 @@ class DynamicProfileServiceUnitTest {
         assertThat(result.getUpdatedAt()).isNotNull();
         assertThat(result.getLastActiveAt()).isNotNull();
         assertThat(result.getRecentDeviceTypes()).isNotNull();
-        
+
         // 2. 验证主要的Redis存储操作
         ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object> valueCaptor = ArgumentCaptor.forClass(Object.class);
         ArgumentCaptor<Duration> ttlCaptor = ArgumentCaptor.forClass(Duration.class);
-        
+
         verify(valueOperations).set(keyCaptor.capture(), valueCaptor.capture(), ttlCaptor.capture());
-        
+
         // 验证Redis key格式
         assertThat(keyCaptor.getValue()).isEqualTo(PROFILE_KEY_PREFIX + TEST_USER_ID);
-        
+
         // 验证TTL设置
         assertThat(ttlCaptor.getValue()).isEqualTo(DEFAULT_TTL);
-        
+
         // 验证存储的对象
-        DynamicUserProfile storedProfile = (DynamicUserProfile) valueCaptor.getValue();
-        assertThat(storedProfile.getUserId()).isEqualTo(TEST_USER_ID);
+        Object obj = valueCaptor.getValue();
+        assertThat(obj).isNotNull();
+        
+        // 验证存储的对象是序列化后的字符串
+        assertThat(obj).isInstanceOf(String.class);
+        String serializedJson = (String) obj;
+        
+        // 验证可以正确反序列化
+        DynamicUserProfile deserializedProfile = dynamicProfileSerializer.deserialize(serializedJson);
+        assertThat(deserializedProfile).isNotNull();
+        assertThat(deserializedProfile.getUserId()).isEqualTo(TEST_USER_ID);
         
         // 3. 验证所有ZSet索引更新（总共应该有3次调用）
         ArgumentCaptor<String> zsetKeyCaptor = ArgumentCaptor.forClass(String.class);
@@ -210,6 +221,7 @@ class DynamicProfileServiceUnitTest {
                 .userId(TEST_USER_ID)
                 .build();
         
+        
         // 模拟Redis操作
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
         when(redisTemplate.getExpire(anyString())).thenReturn(3600L);
@@ -264,6 +276,7 @@ class DynamicProfileServiceUnitTest {
                 .lastActiveAt(customTime)
                 .recentDeviceTypes(existingDevices)
                 .build();
+        
         
         // 模拟Redis操作
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
@@ -383,6 +396,7 @@ class DynamicProfileServiceUnitTest {
                 .deviceClassification(DeviceClass.TABLET)
                 .build();
         
+        
         // 模拟Redis操作
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);
         when(redisTemplate.getExpire(anyString())).thenReturn(3600L);
@@ -400,8 +414,8 @@ class DynamicProfileServiceUnitTest {
         // 使用InOrder验证调用顺序
         var inOrder = inOrder(valueOperations, zSetOperations, redisTemplate);
         
-        // 1. 主数据存储
-        inOrder.verify(valueOperations).set(eq(PROFILE_KEY_PREFIX + TEST_USER_ID), any(DynamicUserProfile.class), eq(DEFAULT_TTL));
+        // 1. 主数据存储（现在存储的是序列化后的字符串）
+        inOrder.verify(valueOperations).set(eq(PROFILE_KEY_PREFIX + TEST_USER_ID), any(String.class), eq(DEFAULT_TTL));
         
         // 2. 索引更新操作（总共3次ZSet操作）
         verify(zSetOperations, times(3)).add(anyString(), eq(TEST_USER_ID), anyDouble());
@@ -445,6 +459,7 @@ class DynamicProfileServiceUnitTest {
                 .userId(TEST_USER_ID)
                 .deviceClassification(DeviceClass.SMART_TV)
                 .build();
+        
         
         // 模拟Redis Set操作
         when(valueOperations.increment(USER_COUNT_KEY)).thenReturn(1L);

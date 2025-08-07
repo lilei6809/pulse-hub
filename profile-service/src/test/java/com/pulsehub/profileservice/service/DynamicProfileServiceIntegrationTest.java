@@ -1,11 +1,13 @@
 package com.pulsehub.profileservice.service;
 
-import com.pulsehub.profileservice.config.TestRedisConfig;
+import com.pulsehub.profileservice.config.IntegrationTestConfig;
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
+import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,8 +44,10 @@ import static org.assertj.core.api.Assertions.*;
  * - 测试真实的 Redis 操作和数据存储
  * - 验证业务逻辑的完整流程
  */
-@SpringBootTest
-@Import(TestRedisConfig.class)
+@SpringBootTest(
+    classes = IntegrationTestConfig.class,
+    webEnvironment = SpringBootTest.WebEnvironment.NONE
+)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @ActiveProfiles("test")
@@ -53,13 +57,11 @@ class DynamicProfileServiceIntegrationTest {
     private DynamicProfileService dynamicProfileService;
 
     @Autowired
+    @Qualifier("testRedisTemplate")
     private RedisTemplate<String, Object> redisTemplate;
-
-    @MockBean
-    private StaticUserProfileRepository staticProfileRepository;
-
-    @MockBean
-    private ApplicationEventPublisher eventPublisher;
+    
+    @Autowired
+    private DynamicProfileSerializer dynamicProfileSerializer;
 
     private static RedisServer redisServer;
 
@@ -230,14 +232,17 @@ class DynamicProfileServiceIntegrationTest {
         assertThat(result.getUpdatedAt()).isNotNull();
         assertThat(result.getLastActiveAt()).isNotNull();
 
-        // 2. 验证主数据在 Redis 中的存储
+        // 2. 验证主数据在 Redis 中的存储（现在存储为序列化的字符串）
         String profileKey = PROFILE_KEY_PREFIX + TEST_USER_ID;
-        Object storedProfile = redisTemplate.opsForValue().get(profileKey);
+        Object storedData = redisTemplate.opsForValue().get(profileKey);
         
-        assertThat(storedProfile).isNotNull();
-        assertThat(storedProfile).isInstanceOf(DynamicUserProfile.class);
+        assertThat(storedData).isNotNull();
+        assertThat(storedData).isInstanceOf(String.class);
         
-        DynamicUserProfile retrievedProfile = (DynamicUserProfile) storedProfile;
+        // 使用序列化器反序列化
+        String serializedProfile = (String) storedData;
+        DynamicUserProfile retrievedProfile = dynamicProfileSerializer.deserialize(serializedProfile);
+        assertThat(retrievedProfile).isNotNull();
         assertThat(retrievedProfile.getUserId()).isEqualTo(TEST_USER_ID);
         assertThat(retrievedProfile.getPageViewCount()).isEqualTo(25L);
         assertThat(retrievedProfile.getDeviceClassification()).isEqualTo(DeviceClass.MOBILE);
@@ -273,8 +278,9 @@ class DynamicProfileServiceIntegrationTest {
         assertThat(expiryScore).isGreaterThan(Instant.now().toEpochMilli()); // 过期时间应该在未来
 
         // 7. 验证用户计数器
-        String counterValue = (String) redisTemplate.opsForValue().get(USER_COUNT_KEY);
-        assertThat(counterValue).isEqualTo("1");
+        Object counterValue = redisTemplate.opsForValue().get(USER_COUNT_KEY);
+        assertThat(counterValue).isNotNull();
+        assertThat(counterValue).isEqualTo("1"); // Redis increment 返回的是字符串形式
 
         System.out.println("✅ 集成测试通过：用户画像已成功创建并持久化到 Redis");
     }
@@ -310,8 +316,12 @@ class DynamicProfileServiceIntegrationTest {
 
         // 2. 验证 Redis 中存储的数据
         String profileKey = PROFILE_KEY_PREFIX + TEST_USER_ID + "_minimal";
-        DynamicUserProfile storedProfile = (DynamicUserProfile) redisTemplate.opsForValue().get(profileKey);
+        Object storedData = redisTemplate.opsForValue().get(profileKey);
         
+        assertThat(storedData).isNotNull();
+        assertThat(storedData).isInstanceOf(String.class);
+        
+        DynamicUserProfile storedProfile = dynamicProfileSerializer.deserialize((String) storedData);
         assertThat(storedProfile).isNotNull();
         assertThat(storedProfile.getPageViewCount()).isEqualTo(0L);
         assertThat(storedProfile.getVersion()).isEqualTo(1L);
@@ -352,8 +362,12 @@ class DynamicProfileServiceIntegrationTest {
 
         // 2. 验证 Redis 中的主数据
         String profileKey = PROFILE_KEY_PREFIX + TEST_USER_ID + "_device";
-        DynamicUserProfile storedProfile = (DynamicUserProfile) redisTemplate.opsForValue().get(profileKey);
+        Object storedData = redisTemplate.opsForValue().get(profileKey);
         
+        assertThat(storedData).isNotNull();
+        assertThat(storedData).isInstanceOf(String.class);
+        
+        DynamicUserProfile storedProfile = dynamicProfileSerializer.deserialize((String) storedData);
         assertThat(storedProfile).isNotNull();
         assertThat(storedProfile.getDeviceClassification()).isEqualTo(DeviceClass.TABLET);
 
@@ -436,8 +450,9 @@ class DynamicProfileServiceIntegrationTest {
         // ========================================
         
         // 1. 验证用户计数器
-        String counterValue = (String) redisTemplate.opsForValue().get(USER_COUNT_KEY);
-        assertThat(counterValue).isEqualTo("2");
+        Object counterValue = redisTemplate.opsForValue().get(USER_COUNT_KEY);
+        assertThat(counterValue).isNotNull();
+        assertThat(counterValue).isEqualTo("2"); // Redis increment 返回的是字符串形式
 
         // 2. 验证页面浏览数索引包含两个用户
         Set<ZSetOperations.TypedTuple<Object>> pageViewUsersWithScores = 
@@ -489,7 +504,7 @@ class DynamicProfileServiceIntegrationTest {
                 .hasMessage("用户ID不能为空");
 
         // 验证 Redis 中没有存储任何数据
-        String counterValue = (String) redisTemplate.opsForValue().get(USER_COUNT_KEY);
+        Object counterValue = redisTemplate.opsForValue().get(USER_COUNT_KEY);
         assertThat(counterValue).isNull(); // 计数器应该没有被更新
 
         System.out.println("✅ 集成测试通过：无效输入正确抛出异常");

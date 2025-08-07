@@ -6,5 +6,13 @@ public enum DeviceClass {
     TABLET,
     SMART_TV,
     OTHER,
-    UNKNOWN
+    UNKNOWN;
+
+    public static DeviceClass from(String value) {
+        try {
+            return DeviceClass.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return OTHER;
+        }
+    }
 }
