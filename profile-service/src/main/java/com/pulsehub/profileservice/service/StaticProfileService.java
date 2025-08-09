@@ -429,8 +429,10 @@ public class StaticProfileService {
         stats.setCompleteProfiles(completeProfiles);
         stats.setCompletenessRate(totalProfiles > 0 ? (double) completeProfiles / totalProfiles * 100 : 0);
         
-        log.info("📊 用户画像统计 - 总数: {}, 本周新增: {}, 完整画像: {}, 完整率: {:.1f}%", 
-                totalProfiles, newUsersThisWeek, completeProfiles, stats.getCompletenessRate());
+        log.info("📊 用户画像统计 - 总数: {}, 本周新增: {}, 完整画像: {}, 完整率: {}",
+                totalProfiles, newUsersThisWeek, completeProfiles,
+                String.format("%.1f", stats.getCompleteProfiles()));
+
         
         return stats;
     }

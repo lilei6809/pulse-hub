@@ -832,8 +832,11 @@ public class DynamicProfileService {
             stats.setActivityRate24h((double) activeUsers24h.size() / totalUsersCount * 100);
         }
 
-        log.info("📊 用户活跃统计 - 总数: {}, 24h活跃: {}, 1h活跃: {}, 24h活跃率: {:.1f}%",
-                totalUsersCount, activeUsers24h.size(), activeUsers1h.size(), stats.getActivityRate24h());
+        log.info("📊 用户活跃统计 - 总数: {}, 24h活跃: {}, 1h活跃: {}, 24h活跃率: {}",
+                totalUsersCount,
+                activeUsers24h.size(),
+                activeUsers1h.size(),
+                String.format("%.1f", stats.getActivityRate24h()));
 
         return stats;
     }
@@ -893,7 +896,7 @@ public class DynamicProfileService {
         String key = buildProfileKey(userId);
         Boolean deleted = redisTemplate.delete(key);
         
-        if (Boolean.TRUE.equals(deleted) && profileOpt.isPresent()) {
+        if (deleted && profileOpt.isPresent()) {
             DynamicUserProfile profile = profileOpt.get();
             
             // 清理活跃用户索引

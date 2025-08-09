@@ -105,7 +105,7 @@ public class DynamicUserProfileController {
         try {
             log.info("📊 增加页面浏览数: userId={}, pageViews={}", userId, pageViews);
             
-            Long viewCount = Long.parseLong(pageViews);
+            long viewCount = Long.parseLong(pageViews);
             if (viewCount <= 0) {
                 log.warn("⚠️ 页面浏览数必须大于0: {}", viewCount);
                 return ResponseEntity.badRequest().build();
