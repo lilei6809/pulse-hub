@@ -2,7 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
-import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
+import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.context.ApplicationEventPublisher;
@@ -11,7 +11,6 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -27,7 +26,7 @@ class DynamicProfileServiceSimpleTest {
     private RedisTemplate<String, Object> redisTemplate;
     private StaticUserProfileRepository staticProfileRepository;
     private ApplicationEventPublisher eventPublisher;
-    private DynamicProfileSerializer serializer;
+    private DynamicUserProfileSerializer serializer;
     private ValueOperations<String, Object> valueOperations;
     private ZSetOperations<String, Object> zSetOperations;
 
@@ -39,7 +38,7 @@ class DynamicProfileServiceSimpleTest {
         redisTemplate = mock(RedisTemplate.class);
         staticProfileRepository = mock(StaticUserProfileRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        serializer = new DynamicProfileSerializer(); // 使用真实的序列化器
+        serializer = new DynamicUserProfileSerializer(); // 使用真实的序列化器
         valueOperations = mock(ValueOperations.class);
         zSetOperations = mock(ZSetOperations.class);
 

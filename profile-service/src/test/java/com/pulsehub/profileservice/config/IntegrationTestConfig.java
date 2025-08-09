@@ -1,6 +1,6 @@
 package com.pulsehub.profileservice.config;
 
-import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
+import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
 import com.pulsehub.profileservice.service.DynamicProfileService;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,7 +8,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -66,8 +65,8 @@ public class IntegrationTestConfig {
      * DynamicProfileSerializer Bean
      */
     @Bean
-    public DynamicProfileSerializer dynamicProfileSerializer() {
-        return new DynamicProfileSerializer();
+    public DynamicUserProfileSerializer dynamicProfileSerializer() {
+        return new DynamicUserProfileSerializer();
     }
 
     /**
@@ -78,12 +77,12 @@ public class IntegrationTestConfig {
             RedisTemplate<String, Object> redisTemplate,
             StaticUserProfileRepository staticProfileRepository,
             ApplicationEventPublisher eventPublisher,
-            DynamicProfileSerializer dynamicProfileSerializer) {
+            DynamicUserProfileSerializer dynamicUserProfileSerializer) {
         return new DynamicProfileService(
             redisTemplate, 
             staticProfileRepository, 
-            eventPublisher, 
-            dynamicProfileSerializer
+            eventPublisher,
+                dynamicUserProfileSerializer
         );
     }
 }

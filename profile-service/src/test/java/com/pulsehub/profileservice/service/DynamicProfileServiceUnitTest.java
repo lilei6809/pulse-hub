@@ -2,7 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
-import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
+import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,6 @@ import org.springframework.data.redis.core.ZSetOperations;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -61,7 +60,7 @@ class DynamicProfileServiceUnitTest {
     
     private DynamicProfileService dynamicProfileService;
 
-    private DynamicProfileSerializer dynamicProfileSerializer; // DynamicProfileSerializer 是一个工具类, 无外部依赖, 所以不要使用 @Mock
+    private DynamicUserProfileSerializer dynamicUserProfileSerializer; // DynamicProfileSerializer 是一个工具类, 无外部依赖, 所以不要使用 @Mock
 
     // 测试常量
     private static final String TEST_USER_ID = "test-user-123";
@@ -75,14 +74,14 @@ class DynamicProfileServiceUnitTest {
     @BeforeEach
     void setUp() {
         // 初始化真实的序列化器
-        dynamicProfileSerializer = new DynamicProfileSerializer();
+        dynamicUserProfileSerializer = new DynamicUserProfileSerializer();
         
         // 初始化被测试的服务
         dynamicProfileService = new DynamicProfileService(
             redisTemplate,
             staticProfileRepository,
             eventPublisher,
-            dynamicProfileSerializer
+                dynamicUserProfileSerializer
         );
         
         // 设置 Redis 模板的基本行为（使用lenient以避免不必要的stubbing异常）
@@ -151,7 +150,7 @@ class DynamicProfileServiceUnitTest {
         String serializedJson = (String) obj;
         
         // 验证可以正确反序列化
-        DynamicUserProfile deserializedProfile = dynamicProfileSerializer.deserialize(serializedJson);
+        DynamicUserProfile deserializedProfile = dynamicUserProfileSerializer.deserialize(serializedJson);
         assertThat(deserializedProfile).isNotNull();
         assertThat(deserializedProfile.getUserId()).isEqualTo(TEST_USER_ID);
         

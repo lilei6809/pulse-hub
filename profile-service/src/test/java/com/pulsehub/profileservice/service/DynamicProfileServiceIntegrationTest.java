@@ -3,27 +3,20 @@ package com.pulsehub.profileservice.service;
 import com.pulsehub.profileservice.config.IntegrationTestConfig;
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
-import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
-import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
+import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import redis.embedded.RedisServer;
-import redis.embedded.RedisServerBuilder;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -61,7 +54,7 @@ class DynamicProfileServiceIntegrationTest {
     private RedisTemplate<String, Object> redisTemplate;
     
     @Autowired
-    private DynamicProfileSerializer dynamicProfileSerializer;
+    private DynamicUserProfileSerializer dynamicUserProfileSerializer;
 
     private static RedisServer redisServer;
 
@@ -241,7 +234,7 @@ class DynamicProfileServiceIntegrationTest {
         
         // 使用序列化器反序列化
         String serializedProfile = (String) storedData;
-        DynamicUserProfile retrievedProfile = dynamicProfileSerializer.deserialize(serializedProfile);
+        DynamicUserProfile retrievedProfile = dynamicUserProfileSerializer.deserialize(serializedProfile);
         assertThat(retrievedProfile).isNotNull();
         assertThat(retrievedProfile.getUserId()).isEqualTo(TEST_USER_ID);
         assertThat(retrievedProfile.getPageViewCount()).isEqualTo(25L);
@@ -321,7 +314,7 @@ class DynamicProfileServiceIntegrationTest {
         assertThat(storedData).isNotNull();
         assertThat(storedData).isInstanceOf(String.class);
         
-        DynamicUserProfile storedProfile = dynamicProfileSerializer.deserialize((String) storedData);
+        DynamicUserProfile storedProfile = dynamicUserProfileSerializer.deserialize((String) storedData);
         assertThat(storedProfile).isNotNull();
         assertThat(storedProfile.getPageViewCount()).isEqualTo(0L);
         assertThat(storedProfile.getVersion()).isEqualTo(1L);
@@ -367,7 +360,7 @@ class DynamicProfileServiceIntegrationTest {
         assertThat(storedData).isNotNull();
         assertThat(storedData).isInstanceOf(String.class);
         
-        DynamicUserProfile storedProfile = dynamicProfileSerializer.deserialize((String) storedData);
+        DynamicUserProfile storedProfile = dynamicUserProfileSerializer.deserialize((String) storedData);
         assertThat(storedProfile).isNotNull();
         assertThat(storedProfile.getDeviceClassification()).isEqualTo(DeviceClass.TABLET);
 

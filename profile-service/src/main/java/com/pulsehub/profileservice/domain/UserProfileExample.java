@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -25,10 +24,10 @@ import java.util.Set;
 public class UserProfileExample {
 
     private final DeviceClassifier deviceClassifier;
-    private final UserProfileSerializer serializer;
+    private final DynamicUserProfileSerializer serializer;
 
     @Autowired
-    public UserProfileExample(DeviceClassifier deviceClassifier, UserProfileSerializer serializer) {
+    public UserProfileExample(DeviceClassifier deviceClassifier, DynamicUserProfileSerializer serializer) {
         this.deviceClassifier = deviceClassifier;
         this.serializer = serializer;
     }

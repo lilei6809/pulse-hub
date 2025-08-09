@@ -2,12 +2,12 @@ package com.pulsehub.profileservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
-import com.pulsehub.profileservice.domain.DynamicProfileSerializer;
+import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
 import com.pulsehub.profileservice.domain.DeviceClass;
 import com.pulsehub.profileservice.domain.event.CleanupCompletedEvent;
 import com.pulsehub.profileservice.domain.event.CleanupFailedEvent;
+import com.pulsehub.profileservice.factory.DynamicUserProfileFactory;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -19,17 +19,12 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.data.redis.core.*;
 
-import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
-
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -70,7 +65,10 @@ public class DynamicProfileService {
     private final ApplicationEventPublisher eventPublisher;
 
 
-    private final DynamicProfileSerializer dynamicProfileSerializer;
+    private final DynamicUserProfileSerializer dynamicUserProfileSerializer;
+    
+    // 🏭 工厂模式：集成设备分类和序列化功能
+    private final DynamicUserProfileFactory profileFactory;
 
     //    private final Executor cleanupTaskExecutor;
     
@@ -78,11 +76,13 @@ public class DynamicProfileService {
     public DynamicProfileService(RedisTemplate<String, Object> redisTemplate,
                                  StaticUserProfileRepository staticProfileRepository,
                                  ApplicationEventPublisher eventPublisher,
-                                 DynamicProfileSerializer dynamicProfileSerializer) {
+                                 DynamicUserProfileSerializer dynamicUserProfileSerializer,
+                                 DynamicUserProfileFactory profileFactory) {
         this.redisTemplate = redisTemplate;
         this.staticProfileRepository = staticProfileRepository;
         this.eventPublisher = eventPublisher;
-        this.dynamicProfileSerializer = dynamicProfileSerializer;
+        this.dynamicUserProfileSerializer = dynamicUserProfileSerializer;
+        this.profileFactory = profileFactory;
         // 初始化原子清理脚本
         this.atomicCleanupScript = RedisScript.of(ATOMIC_CLEANUP_LUA_SCRIPT, List.class);
     }
@@ -227,7 +227,7 @@ public class DynamicProfileService {
         // 保存到Redis（RedisTemplate已优化支持Java 8时间类型）
         // key:    dynamic_profile:user123
         String key = buildProfileKey(dynamicProfile.getUserId());
-        String profileJson = dynamicProfileSerializer.serialize(dynamicProfile);
+        String profileJson = dynamicUserProfileSerializer.serialize(dynamicProfile);
 
         if (profileJson == null) {
             return null;
@@ -272,7 +272,7 @@ public class DynamicProfileService {
         
         DynamicUserProfile profile = null;
         if (serializedProfile != null) {
-            profile = dynamicProfileSerializer.deserialize(serializedProfile);
+            profile = dynamicUserProfileSerializer.deserialize(serializedProfile);
         }
         
         if (profile != null) {
@@ -326,7 +326,7 @@ public class DynamicProfileService {
 
         // 保存到Redis，使用专用序列化器
         String key = buildProfileKey(original.getUserId());
-        String serializedProfile = dynamicProfileSerializer.serialize(original);
+        String serializedProfile = dynamicUserProfileSerializer.serialize(original);
         if (serializedProfile != null) {
             redisTemplate.opsForValue().set(key, serializedProfile, DEFAULT_TTL);
         } else {
@@ -395,15 +395,9 @@ public class DynamicProfileService {
                 */
                 //TODO: 当使用 mongodb 后, 先查询 mongodb 中存不存在, 如果存在, 使用 mongodb 中保存的动态 profile
                 .orElseGet(() -> {
-                    // 创建新画像
-                    DynamicUserProfile newProfile = DynamicUserProfile.builder()
-                            .userId(userId)
-                            .pageViewCount(count)
-                            .lastActiveAt(Instant.now())
-                            .recentDeviceTypes(new HashSet<>())
-                            .version(1L)
-                            .updatedAt(Instant.now())
-                            .build();
+                    // 🏭 使用工厂创建新画像（页面浏览场景）
+                    log.debug("🆕 为页面浏览场景创建新的动态画像: userId={}, pageViews={}", userId, count);
+                    DynamicUserProfile newProfile = profileFactory.createForPageViewTracking(userId, count);
                     return createProfile(newProfile);
                 });
     }
@@ -425,15 +419,11 @@ public class DynamicProfileService {
         return getProfile(userId)
                 .map(profile -> updateProfile(profile))
                 .orElseGet(() -> {
-                    // 创建新画像，仅设置活跃时间
-                    DynamicUserProfile newProfile = DynamicUserProfile.builder()
-                            .userId(userId)
-                            .lastActiveAt(finalActiveTime)
-                            .pageViewCount(0L)
-                            .recentDeviceTypes(new HashSet<>())
-                            .version(1L)
-                            .updatedAt(Instant.now())
-                            .build();
+                    // 🏭 使用工厂创建最小化画像，仅设置活跃时间
+                    log.debug("🆕 为活跃状态更新创建最小化画像: userId={}", userId);
+                    DynamicUserProfile newProfile = profileFactory.createMinimalDynamicUserProfile(userId);
+                    newProfile.setLastActiveAt(finalActiveTime);
+                    newProfile.setUpdatedAt(Instant.now());
                     return createProfile(newProfile);
                 });
     }
@@ -458,19 +448,10 @@ public class DynamicProfileService {
                     return updateProfile(profile);
                 })
                 .orElseGet(() -> {
-                    // 创建新画像，设置设备信息
-                    Set<DeviceClass> deviceTypes = new HashSet<>();
-                    deviceTypes.add(deviceClass);
-                    
-                    DynamicUserProfile newProfile = DynamicUserProfile.builder()
-                            .userId(userId)
-                            .deviceClassification(deviceClass)
-                            .recentDeviceTypes(deviceTypes)
-                            .pageViewCount(0L)
-                            .lastActiveAt(Instant.now())
-                            .version(1L)
-                            .updatedAt(Instant.now())
-                            .build();
+                    // 🏭 使用工厂创建最小化画像，然后设置设备信息
+                    log.debug("🆕 为设备信息更新创建新画像: userId={}, deviceClass={}", userId, deviceClass);
+                    DynamicUserProfile newProfile = profileFactory.createMinimalDynamicUserProfile(userId);
+                    newProfile.setMainDeviceClassification(deviceClass);
                     
                     updateDeviceIndex(userId, deviceClass);
                     return createProfile(newProfile);
@@ -503,7 +484,7 @@ public class DynamicProfileService {
         List<DynamicUserProfile> profiles = profileObjects.stream()
                 .map(obj -> {
                     if (obj instanceof String) {
-                        return dynamicProfileSerializer.deserialize((String) obj);
+                        return dynamicUserProfileSerializer.deserialize((String) obj);
                     }
                     // Handle cases where Redis might return other types or null
                     if (obj instanceof LinkedHashMap) {
@@ -572,20 +553,15 @@ public class DynamicProfileService {
                 profile.incrementPageViewCount(viewCount);
                 profile.updateLastActiveAt(now);
             } else {
-                // 创建新画像
-                profile = DynamicUserProfile.builder()
-                        .userId(userId)
-                        .pageViewCount(viewCount)
-                        .lastActiveAt(now)
-                        .recentDeviceTypes(new HashSet<>())
-                        .version(1L)
-                        .updatedAt(now)
-                        .build();
+                // 🏭 使用工厂创建新画像
+                profile = profileFactory.createForPageViewTracking(userId, viewCount);
+                profile.setLastActiveAt(now);
+                profile.setUpdatedAt(now);
             }
 
             // 保存到Redis，使用专用序列化器
             String key = buildProfileKey(userId);
-            String serializedProfile = dynamicProfileSerializer.serialize(profile);
+            String serializedProfile = dynamicUserProfileSerializer.serialize(profile);
             if (serializedProfile != null) {
                 redisTemplate.opsForValue().set(key, serializedProfile, DEFAULT_TTL);
             } else {
@@ -1146,6 +1122,62 @@ public class DynamicProfileService {
             return String.format("CleanupStatus{运行中=%s, 过期任务=%d, 当前用户=%d, 下次调度=%s}",
                     cleanupRunning, overdueTaskCount, currentUserCount, nextScheduledTime);
         }
+    }
+
+    // ===================================================================
+    // 工厂模式集成方法
+    // ===================================================================
+
+    /**
+     * 使用工厂创建用户画像（便利方法）
+     * 
+     * @param userId 用户ID
+     * @param rawDevice 原始设备字符串
+     * @param pageViews 页面浏览数
+     * @return 创建的用户画像
+     */
+    public DynamicUserProfile createProfileFromRawData(String userId, String rawDevice, Long pageViews) {
+        Map<String, Object> dataMap = Map.of(
+            "userId", userId,
+            "device", rawDevice != null ? rawDevice : "",
+            "pageViewCount", pageViews != null ? pageViews : 0L
+        );
+        
+        DynamicUserProfile profile = profileFactory.createFromMap(dataMap);
+        return createProfile(profile);
+    }
+
+    /**
+     * 从JSON创建并保存用户画像（便利方法）
+     * 
+     * @param json JSON字符串
+     * @return 创建的用户画像，如果失败返回null
+     */
+    public DynamicUserProfile createProfileFromJson(String json) {
+        DynamicUserProfile profile = profileFactory.createFromJson(json);
+        if (profile != null && profile.isValid()) {
+            return createProfile(profile);
+        }
+        return null;
+    }
+
+    /**
+     * 将用户画像序列化为JSON（便利方法）
+     * 
+     * @param userId 用户ID
+     * @return JSON字符串，如果失败返回null
+     */
+    public String getProfileAsJson(String userId) {
+        return getProfile(userId)
+                .map(profileFactory::toJson)
+                .orElse(null);
+    }
+
+    /**
+     * 检查工厂是否已正确初始化
+     */
+    public boolean isFactoryInitialized() {
+        return profileFactory != null && profileFactory.isInitialized();
     }
 
     // ===================================================================
