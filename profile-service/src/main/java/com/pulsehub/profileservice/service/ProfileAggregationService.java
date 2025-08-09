@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 public class ProfileAggregationService {
 
     private final StaticUserProfileRepository staticProfileRepository;
-    private final ProfileService dynamicProfileService;
+    private final DynamicProfileService dynamicProfileService;
 
 
 
@@ -317,25 +317,13 @@ public class ProfileAggregationService {
     // ===================================================================
 
     /**
-     * 将 UserProfile 转换为 DynamicUserProfile
-     * 这是一个临时的适配器方法，用于处理类型不匹配问题
-     * 
-     * 【重要修正】
-     * 添加了userId字段的正确设置，确保聚合操作能正常工作
+     * 查询 动态 profile
      */
     private Optional<DynamicUserProfile> getDynamicProfile(String userId) {
-        return dynamicProfileService.getProfile(userId)
-            .map(userProfile -> {
-                // 这里需要实现从 UserProfile 到 DynamicUserProfile 的转换
-                // 由于 UserProfile 字段有限，我们创建一个基础的 DynamicUserProfile
-                return DynamicUserProfile.builder()
-                    .userId(userId) // 🔥 重要：设置用户ID，确保数据关联正确
-                    .lastActiveAt(userProfile.getLastSeenAt().toInstant(java.time.ZoneOffset.UTC))
-                    .pageViewCount(0L) // 默认值，因为 UserProfile 中没有这个字段
-                    .updatedAt(java.time.Instant.now()) // 设置更新时间
-                    .version(1L) // 设置默认版本
-                    .build();
-            });
+
+        Optional<DynamicUserProfile> dynamicUserProfile = dynamicProfileService.getProfile(userId);
+
+        return dynamicUserProfile;
     }
 
     /**
@@ -464,7 +452,7 @@ public class ProfileAggregationService {
         try {
             // 检查动态数据源
             boolean dynamicHealthy = dynamicProfileService.profileExists("health-check");
-            status.setDynamicDataSourceHealthy(true);
+            status.setDynamicDataSourceHealthy(dynamicHealthy);
         } catch (Exception e) {
             status.setDynamicDataSourceHealthy(false);
             status.addError("动态数据源异常: " + e.getMessage());

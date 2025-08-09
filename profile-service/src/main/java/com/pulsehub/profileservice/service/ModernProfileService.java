@@ -2,6 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.UserProfileSnapshot;
 import com.pulsehub.profileservice.domain.entity.StaticUserProfile;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -442,28 +443,14 @@ public class ModernProfileService {
     // ===================================================================
     // 内部类：健康状态
     // ===================================================================
-
+    @Data
     public static class HealthStatus {
+        // Getters and Setters
         private boolean overallHealthy;
         private boolean staticProfileServiceHealthy;
         private boolean aggregationServiceHealthy;
         private final List<String> errors = new java.util.ArrayList<>();
 
-        // Getters and Setters
-        public boolean isOverallHealthy() { return overallHealthy; }
-        public void setOverallHealthy(boolean overallHealthy) { this.overallHealthy = overallHealthy; }
-
-        public boolean isStaticProfileServiceHealthy() { return staticProfileServiceHealthy; }
-        public void setStaticProfileServiceHealthy(boolean staticProfileServiceHealthy) { 
-            this.staticProfileServiceHealthy = staticProfileServiceHealthy; 
-        }
-
-        public boolean isAggregationServiceHealthy() { return aggregationServiceHealthy; }
-        public void setAggregationServiceHealthy(boolean aggregationServiceHealthy) { 
-            this.aggregationServiceHealthy = aggregationServiceHealthy; 
-        }
-
-        public List<String> getErrors() { return errors; }
         public void addError(String error) { errors.add(error); }
     }
 }

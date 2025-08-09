@@ -21,6 +21,7 @@ import java.util.Set;
  */
 @Slf4j
 @Component
+@Deprecated
 public class UserProfileExample {
 
     private final DeviceClassifier deviceClassifier;
