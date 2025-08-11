@@ -113,6 +113,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: mongodb
+    restart: always
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGODB_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGODB_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: "${MONGODB_DATABASE}"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - pulsehub-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - .env.docker
       
   discovery-service:
     build:
@@ -211,6 +233,7 @@ services:
     environment:
       # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+      SPRING_DATA_MONGODB_URI: "mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin"
       SERVER_PORT: 8084
     ports:
       - "${PROFILE_SERVICE_PORT}:8084"
@@ -222,6 +245,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
@@ -268,6 +293,7 @@ services:
 volumes:
   kafka-data:
   postgres-data:
+  mongodb-data:
 
 networks:
   pulsehub-net:
