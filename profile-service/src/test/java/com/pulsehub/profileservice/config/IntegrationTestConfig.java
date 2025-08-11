@@ -1,8 +1,10 @@
 package com.pulsehub.profileservice.config;
 
 import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
+import com.pulsehub.profileservice.factory.DynamicUserProfileFactory;
 import com.pulsehub.profileservice.service.DynamicProfileService;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -74,15 +76,17 @@ public class IntegrationTestConfig {
      */
     @Bean
     public DynamicProfileService dynamicProfileService(
-            RedisTemplate<String, Object> redisTemplate,
+            @Qualifier("testRedisTemplate") RedisTemplate<String, Object> redisTemplate,
             StaticUserProfileRepository staticProfileRepository,
             ApplicationEventPublisher eventPublisher,
-            DynamicUserProfileSerializer dynamicUserProfileSerializer) {
+            DynamicUserProfileSerializer dynamicUserProfileSerializer,
+            DynamicUserProfileFactory factory) {
         return new DynamicProfileService(
             redisTemplate, 
             staticProfileRepository, 
             eventPublisher,
-                dynamicUserProfileSerializer
+                dynamicUserProfileSerializer,
+                factory
         );
     }
 }

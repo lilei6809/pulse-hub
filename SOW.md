@@ -1,7 +1,7 @@
 # PulseHub 项目 SOW（Statement of Work）
 
 ## 一、项目目标与背景简介
-PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP），支持实时事件采集、用户画像管理、缓存优化、服务发现、监控告警等核心能力。平台采用微服务架构，结合 Kafka、Redis、PostgreSQL 等基础设施，满足企业级数据处理与分析需求。
+PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP），支持实时事件采集、用户画像管理、缓存优化、服务发现、监控告警等核心能力。平台采用微服务架构，结合 Kafka、Redis、MongoDB 等基础设施，满足企业级数据处理与分析需求。
 
 ## 二、任务总览
 
@@ -9,8 +9,8 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
 |--------|----------|------|--------|
 | 7      | Set up Redis Caching Layer | ✅ done | high |
 | 9      | Configure Multi-Topic Kafka Environment | ✅ done | high |
-| 10     | Create User Profile Model | 📝 pending | high |
-| 11     | Implement User Profile Service | 📝 pending | high |
+| 10     | Create User Profile Model | ✅ done | high |
+| 11     | Implement User Profile Service | ⏳ in-progress | high |
 | 12     | Develop Real-time Event Processor | 📝 pending | high |
 | 13     | Implement Profile REST API | 📝 pending | medium |
 | 14     | Implement Profile Database Repository | 📝 pending | medium |
@@ -21,7 +21,6 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
 | 20     | Create System Documentation | 📝 pending | low |
 | 21     | Implement End-to-End Testing Suite | 📝 pending | medium |
 | 22     | Implement Spring Boot Admin for Centralized Monitoring | 📝 pending | high |
-| 23     | Implement Spring Boot Admin for Centralized Monitoring | 📝 pending | high |
 | 24     | Establish Testing Standards and Guidelines for PulseHub Project | 📝 pending | high |
 | 25     | Implement Event-Driven Cache Architecture | 📝 pending | high |
 | 26     | Implement Multi-Datasource Connection Pool Optimization System | 📝 pending | high |
@@ -29,28 +28,34 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
 | 28     | Implement Kafka Advanced Configuration Optimization System | 📝 pending | high |
 | 29     | Implement Production-Grade Real-Time Risk Control and System Monitoring Framework | 📝 pending | high |
 | 30     | Implement Service Discovery Development Environment with Eureka | 📝 pending | high |
+| 31     | Implement Kafka Consumer for Real-Time User Activity Processing in Profile Service | 📝 pending | medium |
+| 32     | Configure MongoDB for the project, including Docker environment and basic CRUD interfaces | 📝 pending | medium |
+| 33     | Modify UserProfile POJO for MongoDB Mapping with Backward Compatibility | 📝 pending | medium |
+| 34     | Implement Redis to MongoDB Data Synchronization with Multiple Strategies | 📝 pending | medium |
+| 35     | Design and Implement Event-Driven Routing System for Redis-MongoDB Synchronization Strategies | 📝 pending | medium |
 
 > ✅ done  ⏳ in-progress 📝 pending
 
 ## 三、任务分阶段实施建议
 
-(a.) 基础设施搭建与核心能力实现（如 Redis、Kafka、服务发现、Profile 基础模型）
-(b.) 业务服务开发与集成（如用户画像服务、事件处理、API、冷路径持久化等）
-(c.) 监控、测试、文档与规范完善（如监控告警、测试套件、文档、标准等）
-(d.) 高级特性与优化（如事件驱动缓存、积分系统、连接池优化、Kafka 高级配置等）
+(a.) **基础设施与核心模型 (已完成)**: Redis, Kafka, 核心用户模型。
+(b.) **核心服务与事件消费 (进行中)**: 用户画像服务, Kafka 消费者, 数据库 (MongoDB) 集成。
+(c.) **数据同步与高级路由**: 实现 Redis 与 MongoDB 之间的数据同步策略, 并建立事件驱动的动态路由机制。
+(d.) **API、监控与测试**: 暴露 Profile API, 完善监控告警体系, 建立端到端测试。
+(e.) **高级特性与优化**: 实现事件驱动缓存、多数据源管理、积分系统等高级功能。
 
 ## 四、进度统计与完成度
 
-- 主任务总数：22
-- 已完成：1
-- 进行中：1
-- 待办：20
-- 主任务完成度：4.5%
-- 子任务总数：125
-- 子任务已完成：6
-- 子任务进行中：1
-- 子任务待办：118
-- 子任务完成度：5.4%
+- 主任务总数: 26
+- 已完成: 3
+- 进行中: 1
+- 待办: 22
+- 主任务完成度: 11.5%
+- 子任务总数: 98
+- 子任务已完成: 14
+- 子任务进行中: 0
+- 子任务待办: 84
+- 子任务完成度: 14.3%
 
 ## 五、任务详细说明
 
@@ -73,14 +78,14 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [x] Set up monitoring and alerting
   - [x] Integrate Kafka with Spring Boot application
 
-### 10. Create User Profile Model (pending)
+### 10. Create User Profile Model (done)
 - **Dependencies**: None
 - **Subtasks**:
-  - [ ] Define User Profile Core Attributes
-  - [ ] Implement Serialization/Deserialization Methods
-  - [ ] Develop Helper Methods and Utility Functions
+  - [x] Define User Profile Core Attributes
+  - [x] Implement Serialization/Deserialization Methods
+  - [x] Develop Helper Methods and Utility Functions
 
-### 11. Implement User Profile Service (pending)
+### 11. Implement User Profile Service (in-progress)
 - **Dependencies**: 7, 10
 - **Subtasks**:
   - [ ] Define User Profile Service Interface
@@ -88,12 +93,6 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [ ] Implement Database Fallback Mechanism
   - [ ] Develop Exception Handling Framework
   - [ ] Implement Cache Update Strategies
-  - [ ] Implement Service Layer Unit Tests
-  - [ ] Implement Repository Layer Unit Tests
-  - [ ] Implement Redis Cache Integration Tests
-  - [ ] Implement Controller Layer Unit Tests
-  - [ ] Implement End-to-End API Tests
-  - [ ] Implement Test Coverage Reporting
 
 ### 12. Develop Real-time Event Processor (pending)
 - **Dependencies**: 9, 11
@@ -104,16 +103,6 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [ ] Implement Comprehensive Error Handling
   - [ ] Set Up Monitoring and Alerting
   - [ ] Optimize Performance and Scalability
-  - [ ] Implement Kafka Consumer Unit Tests
-  - [ ] Develop Event Processing Logic Unit Tests
-  - [ ] Create User Profile Update Tests
-  - [ ] Implement Error Handling Tests
-  - [ ] Develop Monitoring and Metrics Tests
-  - [ ] Implement Kafka Integration Tests
-  - [ ] Implement Redis Cache Tests
-  - [ ] Develop Performance and Concurrency Tests
-  - [ ] Implement End-to-End Testing
-  - [ ] Ensure Test Coverage Requirements
 
 ### 13. Implement Profile REST API (pending)
 - **Dependencies**: 11
@@ -122,14 +111,6 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [ ] Implement Input Validation
   - [ ] Implement Error Handling
   - [ ] Create API Documentation
-  - [ ] Implement Controller Unit Tests
-  - [ ] Implement Input Validation Tests
-  - [ ] Implement Error Handling Tests
-  - [ ] Implement Integration Tests
-  - [ ] Implement TestContainers Tests
-  - [ ] Implement Performance Tests
-  - [ ] Implement API Documentation Tests
-  - [ ] Ensure Test Coverage
 
 ### 14. Implement Profile Database Repository (pending)
 - **Dependencies**: 10
@@ -195,6 +176,12 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [ ] Implement performance testing suite
   - [ ] Develop chaos testing capabilities
 
+### 22. Implement Spring Boot Admin for Centralized Monitoring (pending)
+- **Dependencies**: 18
+
+### 24. Establish Testing Standards and Guidelines for PulseHub Project (pending)
+- **Dependencies**: 21
+
 ### 25. Implement Event-Driven Cache Architecture (pending)
 - **Dependencies**: 7, 9
 - **Subtasks**:
@@ -248,7 +235,25 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
   - [ ] Intelligent Alerting System Development
   - [ ] Compensation Monitoring Implementation
 
+### 30. Implement Service Discovery Development Environment with Eureka (pending)
+- **Dependencies**: 7, 9, 25
+
+### 31. Implement Kafka Consumer for Real-Time User Activity Processing in Profile Service (pending)
+- **Dependencies**: 7, 10, 11
+
+### 32. Configure MongoDB for the project, including Docker environment and basic CRUD interfaces (pending)
+- **Dependencies**: 9
+
+### 33. Modify UserProfile POJO for MongoDB Mapping with Backward Compatibility (pending)
+- **Dependencies**: 10, 32
+
+### 34. Implement Redis to MongoDB Data Synchronization with Multiple Strategies (pending)
+- **Dependencies**: 7, 32, 25, 27
+
+### 35. Design and Implement Event-Driven Routing System for Redis-MongoDB Synchronization Strategies (pending)
+- **Dependencies**: 34, 9, 7, 25
+
 ## 六、实施与勾选说明
 
 - 每完成一个子任务，请在对应方框内打勾。
-- 本 SOW.md 需随任务推进持续更新。 
+- 本 SOW.md 需随任务推进持续更新。
