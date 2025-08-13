@@ -2,6 +2,7 @@ package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.UserProfileSnapshot;
 import com.pulsehub.profileservice.domain.entity.StaticUserProfile;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -51,7 +52,7 @@ public class ModernProfileService {
      * @param userId 用户ID
      * @return 用户画像快照
      */
-    public Optional<UserProfileSnapshot> getUserProfile(String userId) {
+    public Optional<UserProfileSnapshot> getCompletedUserProfile(String userId) {
         log.debug("🎯 获取用户完整画像: {}", userId);
         
         try {
@@ -169,7 +170,7 @@ public class ModernProfileService {
         return staticProfileService.getProfileByEmail(email)
                 .flatMap(staticProfile -> {
                     String userId = staticProfile.getUserId();
-                    return getUserProfile(userId);
+                    return getCompletedUserProfile(userId);
                 });
     }
 
@@ -182,7 +183,7 @@ public class ModernProfileService {
         return staticProfileService.getProfileByPhoneNumber(phoneNumber)
                 .flatMap(staticProfile -> {
                     String userId = staticProfile.getUserId();
-                    return getUserProfile(userId);
+                    return getCompletedUserProfile(userId);
                 });
     }
 
@@ -196,7 +197,7 @@ public class ModernProfileService {
         log.debug("📦 批量获取用户画像: {} 个用户", userIds.size());
         
         return userIds.stream()
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -214,7 +215,7 @@ public class ModernProfileService {
         List<StaticUserProfile> newUsers = staticProfileService.getNewUsers(days);
         return newUsers.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -229,7 +230,7 @@ public class ModernProfileService {
         List<StaticUserProfile> users = staticProfileService.getUsersBySourceChannel(sourceChannel);
         return users.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -344,7 +345,7 @@ public class ModernProfileService {
         
         return completeProfiles.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(UserProfileSnapshot::isHighValueUser)
@@ -363,7 +364,7 @@ public class ModernProfileService {
         
         return allUsers.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(UserProfileSnapshot::isActiveUser)
@@ -442,28 +443,14 @@ public class ModernProfileService {
     // ===================================================================
     // 内部类：健康状态
     // ===================================================================
-
+    @Data
     public static class HealthStatus {
+        // Getters and Setters
         private boolean overallHealthy;
         private boolean staticProfileServiceHealthy;
         private boolean aggregationServiceHealthy;
         private final List<String> errors = new java.util.ArrayList<>();
 
-        // Getters and Setters
-        public boolean isOverallHealthy() { return overallHealthy; }
-        public void setOverallHealthy(boolean overallHealthy) { this.overallHealthy = overallHealthy; }
-
-        public boolean isStaticProfileServiceHealthy() { return staticProfileServiceHealthy; }
-        public void setStaticProfileServiceHealthy(boolean staticProfileServiceHealthy) { 
-            this.staticProfileServiceHealthy = staticProfileServiceHealthy; 
-        }
-
-        public boolean isAggregationServiceHealthy() { return aggregationServiceHealthy; }
-        public void setAggregationServiceHealthy(boolean aggregationServiceHealthy) { 
-            this.aggregationServiceHealthy = aggregationServiceHealthy; 
-        }
-
-        public List<String> getErrors() { return errors; }
         public void addError(String error) { errors.add(error); }
     }
 }

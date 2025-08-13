@@ -36,6 +36,9 @@ spring:
           max-wait: -1ms
           max-idle: 8
           min-idle: 0
+    mongodb:
+      uri: "${SPRING_DATA_MONGODB_URI:mongodb://pulsehub:pulsehub@localhost:27017/pulsehub_profiles?authSource=admin}"
+      database: "${MONGODB_DATABASE:pulsehub_profiles}"
 
 management:
   endpoints:

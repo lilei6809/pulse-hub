@@ -2,10 +2,15 @@ spring:
   # 测试环境使用嵌入式Redis
   data:
     redis:
-      # 使用嵌入式Redis，避免连接外部Redis服务器
+      # 使用嵌入式Redis，端口由测试类动态配置
       host: localhost
-      port: 6379
-      timeout: 1000ms
+      port: 6370  # 默认测试端口，避免与生产Redis冲突
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
       
   # 测试环境使用内存数据库
   datasource:
@@ -19,6 +24,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+    
+  # 禁用Kafka（测试中不需要）
+  kafka:
+    enabled: false
     
   # 禁用Eureka客户端（测试中不需要）
   cloud:

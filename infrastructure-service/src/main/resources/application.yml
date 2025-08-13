@@ -57,15 +57,15 @@ pulsehub:
   discovery:
     enabled: true
   kafka:
-    topic-default:
-      replicas: 3
-      min-insync-replicas: 2
     partitions:
       user-activity-events: 10
       profile-update: 5
       error-events: 3
       dead-letter-queue: 1
       metrics-events: 2
+    topic-defaults:
+      replicas: 3
+      min-insync-replicas: 2
 
 app:
   environment: "${APP_ENVIRONMENT:dev}"

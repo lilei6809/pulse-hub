@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -27,12 +28,16 @@ import java.util.Set;
  */
 @Data
 @Builder
+@Component
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DynamicUserProfile implements Serializable {
 
+
+
     private static final long serialVersionUID = 1L;
+
 
     /**
      * 用户唯一标识
@@ -74,6 +79,17 @@ public class DynamicUserProfile implements Serializable {
     private Set<DeviceClass> recentDeviceTypes = new HashSet<>();
 
     /**
+     * 原始设备信息
+     * 保留用户上报的原始设备字符串，用于审计和机器学习训练
+     * 
+     * 【业务价值】
+     * - 审计跟踪：保留完整的设备识别历史
+     * - 机器学习：为设备分类算法提供训练数据
+     * - 问题诊断：当设备分类出现异常时可以回溯原始数据
+     */
+    private String rawDeviceInput;
+
+    /**
      * 数据版本号
      * 用于并发控制和数据演进
      */
@@ -86,6 +102,8 @@ public class DynamicUserProfile implements Serializable {
      */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private Instant updatedAt;
+
+
 
     // ==================== 辅助方法 ====================
 
@@ -162,6 +180,31 @@ public class DynamicUserProfile implements Serializable {
     }
 
     /**
+     * 更新设备信息（智能方法）
+     * 同时更新分类结果和原始输入，适用于工厂模式创建
+     * 
+     * @param classified 已分类的设备类型
+     * @param rawInput 原始设备输入字符串
+     */
+    public void updateDeviceInformation(DeviceClass classified, String rawInput) {
+        this.deviceClassification = classified;
+        this.rawDeviceInput = rawInput;
+        addRecentDeviceType(classified);
+        updateLastModified();
+    }
+
+    /**
+     * 从原始设备信息更新（便利方法）
+     * 当只有原始输入，需要外部分类时使用
+     * 
+     * @param rawInput 原始设备输入
+     */
+    public void updateRawDeviceInput(String rawInput) {
+        this.rawDeviceInput = rawInput;
+        updateLastModified();
+    }
+
+    /**
      * 更新版本号和修改时间
      * 内部方法，用于数据一致性控制
      */
@@ -211,7 +254,7 @@ public class DynamicUserProfile implements Serializable {
     }
 
     public boolean isValid(){
-        return userId != null && !userId.isEmpty();
+        return userId != null && !userId.trim().isEmpty();
     }
 
 }

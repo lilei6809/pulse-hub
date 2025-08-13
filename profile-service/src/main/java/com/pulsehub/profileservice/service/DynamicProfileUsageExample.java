@@ -126,8 +126,11 @@ public class DynamicProfileUsageExample {
                         .average()
                         .orElse(0.0);
                         
-                log.info("📱 {} 用户行为: {} 人，平均页面浏览 {:.1f} 次", 
-                        deviceClass, deviceUsers.size(), avgPageViews);
+                log.info("📱 {} 用户行为: {} 人，平均页面浏览 {} 次",
+                        deviceClass,
+                        deviceUsers.size(),
+                        String.format("%.1f", avgPageViews));
+
             }
         }
     }
@@ -182,7 +185,7 @@ public class DynamicProfileUsageExample {
         log.info("   - 总用户数: {}", stats.getTotalUsers());
         log.info("   - 24小时活跃用户: {}", stats.getActiveUsers24h());
         log.info("   - 1小时活跃用户: {}", stats.getActiveUsers1h());
-        log.info("   - 24小时活跃率: {:.2f}%", stats.getActivityRate24h());
+        log.info("   - 24小时活跃率: {}", String.format("%.1f", stats.getActivityRate24h()));
         
         // 清理过期数据
         dynamicProfileService.cleanupExpiredData();

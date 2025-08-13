@@ -20,6 +20,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 @Entity
 @Table(name = "user_profiles")
+@Deprecated
 public class UserProfile implements Serializable {
 
     @Id

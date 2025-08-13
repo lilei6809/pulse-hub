@@ -39,6 +39,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Deprecated
 public class ProfileService {
 
     private final UserProfileRepository userProfileRepository;

@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package com.pulsehub.common.proto;
+
+option java_package = "com.pulsehub.common.proto";
+option java_multiple_files = true;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+/**
+ * UserProfile 同步事件定义
+ * 
+ * 用于 Redis -> Kafka -> MongoDB 的用户画像数据同步
+ * 支持完整同步和增量同步两种模式
+ * 
+ * 设计原则：
+ * - 核心字段使用强类型定义，确保数据完整性
+ * - 动态字段使用 Struct 支持 schemaless 扩展
+ * - 支持字段级别的增量更新操作
+ */
+message UserProfileSyncEvent {
+  // 事件唯一标识
+  string event_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // 事件时间戳
+  google.protobuf.Timestamp timestamp = 3;
+  
+  // 同步类型
+  SyncType sync_type = 4;
+  
+  // 同步数据载荷（使用 oneof 确保类型安全）
+  oneof sync_payload {
+    FullProfileSync full_sync = 5;
+    IncrementalSync incremental_sync = 6;
+  }
+  
+  // 元数据信息
+  SyncMetadata metadata = 7;
+}
+
+/**
+ * 同步类型枚举
+ */
+enum SyncType {
+  SYNC_TYPE_UNSPECIFIED = 0;  // 未指定（遵循 protobuf 最佳实践）
+  FULL_SYNC = 1;               // 完整同步
+  INCREMENTAL_SYNC = 2;        // 增量同步
+}
+
+/**
+ * 完整画像同步
+ * 包含用户画像的所有数据分类
+ */
+message FullProfileSync {
+  // 核心结构化字段（对应 UserProfileDocument 的强类型字段）
+  CoreProfileFields core_fields = 1;
+  
+  // 静态画像数据（来自 PostgreSQL）
+  google.protobuf.Struct static_profile = 2;
+  
+  // 动态画像数据（来自 Redis）
+  google.protobuf.Struct dynamic_profile = 3;
+  
+  // 计算指标（AI/ML 分析结果）
+  google.protobuf.Struct computed_metrics = 4;
+  
+  // 社交媒体数据（第三方集成）
+  google.protobuf.Struct social_media = 5;
+  
+  // 兴趣爱好与偏好
+  google.protobuf.Struct interests_preferences = 6;
+  
+  // 职业与教育信息
+  google.protobuf.Struct professional_info = 7;
+  
+  // 行为分析数据
+  google.protobuf.Struct behavioral_data = 8;
+  
+  // 扩展属性（用于存储额外的键值对数据）
+  google.protobuf.Struct extended_properties = 9;
+}
+
+/**
+ * 核心画像字段
+ * 对应 UserProfileDocument 中的强类型字段
+ */
+message CoreProfileFields {
+  // 文档创建时间
+  google.protobuf.Timestamp created_at = 1;
+  
+  // 文档最后更新时间
+  google.protobuf.Timestamp updated_at = 2;
+  
+  // 数据版本标识
+  string data_version = 3;
+  
+  // 用户注册时间
+  google.protobuf.Timestamp registration_date = 4;
+  
+  // 最后活跃时间
+  google.protobuf.Timestamp last_active_at = 5;
+  
+  // 文档状态（ACTIVE, ARCHIVED, DELETED）
+  string status = 6;
+  
+  // 标签集合（用于灵活的用户分类）
+  repeated string tags = 7;
+}
+
+/**
+ * 增量同步
+ * 包含字段级别的更新操作
+ */
+message IncrementalSync {
+  // 字段更新列表
+  repeated FieldUpdate field_updates = 1;
+  
+  // 批次信息（可选）
+  BatchInfo batch_info = 2;
+}
+
+/**
+ * 字段更新操作
+ * 支持精确的字段路径定位和多种更新操作
+ */
+message FieldUpdate {
+  // 字段路径，使用点分隔符
+  // 例如：
+  // - "core_fields.status"
+  // - "dynamic_profile.page_view_count"  
+  // - "interests_preferences.interests"
+  // - "social_media.twitter.followers_count"
+  string field_path = 1;
+  
+  // 新值（使用 google.protobuf.Value 支持任意 JSON 值类型）
+  google.protobuf.Value new_value = 2;
+  
+  // 更新操作类型
+  UpdateOperation operation = 3;
+  
+  // 更新时间
+  google.protobuf.Timestamp update_time = 4;
+  
+  // 旧值（可选，用于调试和回滚）
+  google.protobuf.Value old_value = 5;
+}
+
+/**
+ * 更新操作类型
+ */
+enum UpdateOperation {
+  UPDATE_OPERATION_UNSPECIFIED = 0;  // 未指定
+  SET = 1;       // 设置值（覆盖）
+  INCREMENT = 2; // 数值增加
+  APPEND = 3;    // 数组追加
+  REMOVE = 4;    // 删除字段
+  MERGE = 5;     // 对象合并（深度合并）
+}
+
+/**
+ * 批次信息
+ * 用于增量同步的批次管理
+ */
+message BatchInfo {
+  // 批次ID
+  string batch_id = 1;
+  
+  // 批次序号（在同一批次中的顺序）
+  int32 sequence = 2;
+  
+  // 批次总数
+  int32 total_batches = 3;
+  
+  // 批次创建时间
+  google.protobuf.Timestamp batch_timestamp = 4;
+}
+
+/**
+ * 同步元数据
+ * 提供额外的上下文信息
+ */
+message SyncMetadata {
+  // 数据源标识
+  string source = 1;
+  
+  // 同步触发原因
+  string trigger_reason = 2;
+  
+  // 数据版本（用于冲突检测）
+  string data_version = 3;
+  
+  // 重试次数（如果是重试）
+  int32 retry_count = 4;
+  
+  // 相关的业务上下文
+  map<string, string> context = 5;
+  
+  // Schema 版本（便于版本兼容性管理）
+  string schema_version = 6;
+}

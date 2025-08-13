@@ -37,7 +37,7 @@ import java.util.Set;
  */
 @Data
 @Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(JsonInclude.Include.NON_NULL)  // Jackson 序列化时自动跳过为 null 的 field
 public class UserProfileSnapshot {
 
     // ===================================================================
@@ -47,7 +47,7 @@ public class UserProfileSnapshot {
     /**
      * 用户唯一标识
      */
-    @JsonProperty("user_id")
+    @JsonProperty("user_id")  // 指定 JSON 中的字段名（序列化和反序列化都会用这个名字）, 如果不加这个注解，默认会用 Java 属性名（比如 userId）
     private String userId;
 
     /**
@@ -358,7 +358,7 @@ public class UserProfileSnapshot {
     }
 
     /**
-     * 生成数据版本标识
+     * 生成数据版本标识 S_1_D_2
      */
     private static String generateDataVersion(StaticUserProfile staticProfile, DynamicUserProfile dynamicProfile) {
         StringBuilder version = new StringBuilder();

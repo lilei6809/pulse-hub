@@ -1,6 +1,7 @@
 package com.pulsehub.profileservice.domain;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.*;
  * - 序列化/反序列化完整性
  * - 设备分类器单元测试
  */
+@Slf4j
 @ExtendWith(MockitoExtension.class)
 @DisplayName("动态用户画像单元测试")
 class DynamicUserProfileUnitTest {
@@ -44,7 +46,7 @@ class DynamicUserProfileUnitTest {
 
     private DynamicUserProfile testProfile;
     private DeviceClassifier deviceClassifier;
-    private UserProfileSerializer serializer;
+    private DynamicUserProfileSerializer serializer;
 
     @BeforeEach
     void setUp() {
@@ -65,7 +67,7 @@ class DynamicUserProfileUnitTest {
 
         // 初始化依赖组件
         deviceClassifier = new DeviceClassifier(redisTemplate);
-        serializer = new UserProfileSerializer();
+        serializer = new DynamicUserProfileSerializer();
     }
 
     @Nested
@@ -331,8 +333,9 @@ class DynamicUserProfileUnitTest {
 
             // When - 序列化然后反序列化
             String kafkaJson = serializer.toKafkaJson(original);
+            log.info("Kafka JSON: {}", kafkaJson);
             DynamicUserProfile deserialized = serializer.fromKafkaJson(kafkaJson);
-
+            log.info("Kafka JSON: {}", deserialized);
             // Then
             assertNotNull(kafkaJson);
             assertTrue(kafkaJson.contains("profile"));
@@ -360,7 +363,9 @@ class DynamicUserProfileUnitTest {
 
             // When - 序列化然后反序列化
             String redisJson = serializer.toRedisJson(original);
+            log.info("Redis JSON serializer: {}", redisJson);
             DynamicUserProfile deserialized = serializer.fromRedisJson(redisJson);
+            log.info("Redis JSON deserialized: {}", deserialized);
 
             // Then - 验证压缩格式
             assertNotNull(redisJson);

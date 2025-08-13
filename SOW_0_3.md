@@ -51,7 +51,7 @@ PulseHub v0.3 以 MongoDB 为核心，目标是实现用户画像、标签、分
 - 依赖：1
 - 优先级：高
 
-### 3. 定义数据模型
+### 3. 定义 MongoDB 数据模型
 - 目标：用 Spring Data MongoDB 注解定义用户画像、行为画像、标签、元数据等模型，结构需与 PRD JSON 示例一致。
 - 依赖：2
 - 优先级：高
@@ -128,3 +128,51 @@ PulseHub v0.3 以 MongoDB 为核心，目标是实现用户画像、标签、分
 
 - 每完成一个任务，请在对应方框内打勾。
 - 本 SOW_0_3.md 需随任务推进持续更新。 
+
+1. 数据归档时机: 选项B：定时批量归档（推荐）
+2. MongoDB 文档结构:  
+
+```mermaid
+graph TD
+    A[ProfileEvent] --> B[EventStrategyFactory]
+    B --> C{事件类型判断}
+    C --> D[PurchaseEventStrategy]
+    C --> E[RegistrationEventStrategy] 
+    C --> F[ClickEventStrategy]
+    
+    D --> G[复杂业务逻辑]
+    E --> H[固定CRITICAL策略]
+    F --> I[固定NORMAL策略]
+    
+    G --> J[ProfilePriority]
+    H --> J
+    I --> J
+    
+    style B fill:#e1f5fe
+    style J fill:#c8e6c9
+```
+
+
+
+
+
+1. 为项目配置 mongodb
+
+2. 数据治理挑战: 在保存到 mongoDB 前先对数据 field 进行格式化, 使用标准的 field name
+
+3. 修改原有的 pojo, 使其支持向后兼容. 完整的 userProfile 分为 private StaticProfile staticProfile; @Field("dynamic_profile")    private Document dynamicProfile;
+
+4. **Redis 作为热数据层** - 最新数据优先
+
+   **MongoDB 作为冷数据层** - 持久化存储
+
+   **版本控制** - 解决数据一致性问题
+
+   **读取优先级** - Redis > MongoDB
+
+5. 配置 redis 到 mongodb 的同步双写, 异步双写, 批量同步 3 种同步方式
+
+6. 基于事件类型的自动路由, 通过事件类型自动推断处理策略, 从而使用不同的同步方式
+
+   策略模式 + 工厂模式的组合
+   graph TD    A[ProfileEvent] --> B[EventStrategyFactory]    B --> C{事件类型判断}    C --> D[PurchaseEventStrategy]    C --> E[RegistrationEventStrategy]    C --> F[ClickEventStrategy]     D --> G[复杂业务逻辑]    E --> H[固定CRITICAL策略]    F --> I[固定NORMAL策略]     G --> J[ProfilePriority]    H --> J    I --> J     style B fill:#e1f5fe    style J fill:#c8e6c9

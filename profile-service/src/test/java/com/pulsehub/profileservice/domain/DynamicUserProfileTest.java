@@ -48,7 +48,7 @@ class DynamicUserProfileTest {
 
     private DynamicUserProfile testProfile;
     private DeviceClassifier deviceClassifier;
-    private UserProfileSerializer serializer;
+    private DynamicUserProfileSerializer serializer;
 
     @BeforeEach
     void setUp() {
@@ -64,7 +64,7 @@ class DynamicUserProfileTest {
 
         // 初始化依赖组件
         deviceClassifier = new DeviceClassifier(redisTemplate);
-        serializer = new UserProfileSerializer();
+        serializer = new DynamicUserProfileSerializer();
     }
 
     @Nested
