@@ -1,8 +1,10 @@
 package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DeviceClass;
+import com.pulsehub.profileservice.domain.DeviceClassifier;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
+import com.pulsehub.profileservice.factory.DynamicUserProfileFactory;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +59,11 @@ class DynamicProfileServiceUnitTest {
     
     @Mock
     private ZSetOperations<String, Object> zSetOperations;
-    
+
+    private DynamicUserProfileFactory  dynamicUserProfileFactory;
+
+    private DeviceClassifier  deviceClassifier;
+
     private DynamicProfileService dynamicProfileService;
 
     private DynamicUserProfileSerializer dynamicUserProfileSerializer; // DynamicProfileSerializer 是一个工具类, 无外部依赖, 所以不要使用 @Mock
@@ -75,13 +81,18 @@ class DynamicProfileServiceUnitTest {
     void setUp() {
         // 初始化真实的序列化器
         dynamicUserProfileSerializer = new DynamicUserProfileSerializer();
+
+        deviceClassifier = new DeviceClassifier(redisTemplate);
+
+        dynamicUserProfileFactory = new DynamicUserProfileFactory(deviceClassifier, dynamicUserProfileSerializer);
         
         // 初始化被测试的服务
         dynamicProfileService = new DynamicProfileService(
             redisTemplate,
             staticProfileRepository,
             eventPublisher,
-                dynamicUserProfileSerializer
+                dynamicUserProfileSerializer,
+                dynamicUserProfileFactory
         );
         
         // 设置 Redis 模板的基本行为（使用lenient以避免不必要的stubbing异常）

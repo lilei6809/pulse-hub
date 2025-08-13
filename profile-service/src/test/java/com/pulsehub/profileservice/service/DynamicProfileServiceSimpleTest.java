@@ -1,8 +1,10 @@
 package com.pulsehub.profileservice.service;
 
 import com.pulsehub.profileservice.domain.DeviceClass;
+import com.pulsehub.profileservice.domain.DeviceClassifier;
 import com.pulsehub.profileservice.domain.DynamicUserProfile;
 import com.pulsehub.profileservice.domain.DynamicUserProfileSerializer;
+import com.pulsehub.profileservice.factory.DynamicUserProfileFactory;
 import com.pulsehub.profileservice.repository.StaticUserProfileRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +31,7 @@ class DynamicProfileServiceSimpleTest {
     private DynamicUserProfileSerializer serializer;
     private ValueOperations<String, Object> valueOperations;
     private ZSetOperations<String, Object> zSetOperations;
+    private DynamicUserProfileFactory factory;
 
     private static final String TEST_USER_ID = "test-user-123";
 
@@ -41,6 +44,7 @@ class DynamicProfileServiceSimpleTest {
         serializer = new DynamicUserProfileSerializer(); // 使用真实的序列化器
         valueOperations = mock(ValueOperations.class);
         zSetOperations = mock(ZSetOperations.class);
+        factory = new DynamicUserProfileFactory(new DeviceClassifier(redisTemplate), serializer);
 
         // 设置 Mock 行为
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -52,7 +56,8 @@ class DynamicProfileServiceSimpleTest {
             redisTemplate, 
             staticProfileRepository, 
             eventPublisher, 
-            serializer
+            serializer,
+                factory
         );
     }
 

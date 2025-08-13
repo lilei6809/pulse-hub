@@ -924,7 +924,7 @@ public class DynamicProfileService {
     }
 
     /**
-     * 清理过期数据
+     * 清理过期的 活跃用户索引 数据
      * 注意：Redis的TTL会自动处理过期，这个方法主要清理索引
      */
     public void cleanupExpiredData() {

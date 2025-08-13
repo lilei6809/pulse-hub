@@ -88,11 +88,12 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
 ### 11. Implement User Profile Service (in-progress)
 - **Dependencies**: 7, 10
 - **Subtasks**:
-  - [ ] Define User Profile Service Interface
-  - [ ] Implement Redis Integration for Profile Caching
-  - [ ] Implement Database Fallback Mechanism
-  - [ ] Develop Exception Handling Framework
-  - [ ] Implement Cache Update Strategies
+  - [x] Define User Profile Service Interface
+  - [x] Implement Redis Integration for Profile Caching
+  - [x] Implement Database Fallback Mechanism
+    - [ ] 这个 fallback 使用 mongodb
+  - [x] Develop Exception Handling Framework
+  - [x] Implement Cache Update Strategies
 
 ### 12. Develop Real-time Event Processor (pending)
 - **Dependencies**: 9, 11
@@ -242,6 +243,9 @@ PulseHub 致力于构建一个高性能、可扩展的客户数据平台（CDP�
 - **Dependencies**: 7, 10, 11
 
 ### 32. Configure MongoDB for the project, including Docker environment and basic CRUD interfaces (pending)
+
+Mongodb 需要被 infrastructure-service 管理.  测试 UserProfileDocumentService
+
 - **Dependencies**: 9
 
 ### 33. Modify UserProfile POJO for MongoDB Mapping with Backward Compatibility (pending)

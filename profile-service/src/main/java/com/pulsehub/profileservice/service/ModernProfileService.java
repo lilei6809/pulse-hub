@@ -52,7 +52,7 @@ public class ModernProfileService {
      * @param userId 用户ID
      * @return 用户画像快照
      */
-    public Optional<UserProfileSnapshot> getUserProfile(String userId) {
+    public Optional<UserProfileSnapshot> getCompletedUserProfile(String userId) {
         log.debug("🎯 获取用户完整画像: {}", userId);
         
         try {
@@ -170,7 +170,7 @@ public class ModernProfileService {
         return staticProfileService.getProfileByEmail(email)
                 .flatMap(staticProfile -> {
                     String userId = staticProfile.getUserId();
-                    return getUserProfile(userId);
+                    return getCompletedUserProfile(userId);
                 });
     }
 
@@ -183,7 +183,7 @@ public class ModernProfileService {
         return staticProfileService.getProfileByPhoneNumber(phoneNumber)
                 .flatMap(staticProfile -> {
                     String userId = staticProfile.getUserId();
-                    return getUserProfile(userId);
+                    return getCompletedUserProfile(userId);
                 });
     }
 
@@ -197,7 +197,7 @@ public class ModernProfileService {
         log.debug("📦 批量获取用户画像: {} 个用户", userIds.size());
         
         return userIds.stream()
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -215,7 +215,7 @@ public class ModernProfileService {
         List<StaticUserProfile> newUsers = staticProfileService.getNewUsers(days);
         return newUsers.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -230,7 +230,7 @@ public class ModernProfileService {
         List<StaticUserProfile> users = staticProfileService.getUsersBySourceChannel(sourceChannel);
         return users.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -345,7 +345,7 @@ public class ModernProfileService {
         
         return completeProfiles.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(UserProfileSnapshot::isHighValueUser)
@@ -364,7 +364,7 @@ public class ModernProfileService {
         
         return allUsers.stream()
                 .map(StaticUserProfile::getUserId)
-                .map(this::getUserProfile)
+                .map(this::getCompletedUserProfile)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(UserProfileSnapshot::isActiveUser)

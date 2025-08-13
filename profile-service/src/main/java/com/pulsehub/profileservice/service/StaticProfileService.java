@@ -8,6 +8,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -52,10 +53,14 @@ public class StaticProfileService {
      * @return 保存后的用户画像（包含生成的版本号等）
      * @throws IllegalStateException 如果用户ID已存在
      */
+    @Transactional
     @CacheEvict(value = "crm-user-profiles", key = "#staticProfile.userId")
     public StaticUserProfile createProfile(StaticUserProfile staticProfile) {
+        log.info("🚀 开始创建静态用户画像: {}", staticProfile.getUserId());
+        
         // 检查 userId 是否已存在
         if (staticUserProfileRepository.existsById(staticProfile.getUserId())) {
+            log.error("❌ 用户ID已存在: {}", staticProfile.getUserId());
             throw new IllegalStateException("Static profile for user ID " + staticProfile.getUserId() + " already exists.");
         }
 
@@ -64,10 +69,16 @@ public class StaticProfileService {
             staticProfile.setRegistrationDate(Instant.now());
         }
 
+        log.info("💾 准备保存用户画像到数据库: {}", staticProfile.getUserId());
+        
         // 保存到 数据库
         StaticUserProfile saved = staticUserProfileRepository.save(staticProfile);
-        log.info("✅ 创建静态用户画像: {} (完整度: {}%)", 
-                saved.getUserId(), saved.getProfileCompletenessScore());
+        log.info("✅ 成功创建静态用户画像: {} (ID: {}, 完整度: {}%)", 
+                saved.getUserId(), saved.getUserId(), saved.getProfileCompletenessScore());
+        
+        // 验证是否真的保存了
+        boolean exists = staticUserProfileRepository.existsById(saved.getUserId());
+        log.info("🔍 验证数据库中是否存在: {} -> {}", saved.getUserId(), exists);
         
         return saved;
     }
