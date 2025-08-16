@@ -2,11 +2,18 @@ package com.pulsehub.datasync;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import java.util.TimeZone;
+
+
 
 /**
  * 数据同步服务主应用类
@@ -47,6 +54,7 @@ public class DataSyncServiceApplication {
         
         // 启用虚拟线程(Java 21特性)，提升I/O密集型操作性能
         System.setProperty("spring.threads.virtual.enabled", "true");
+
         
         SpringApplication.run(DataSyncServiceApplication.class, args);
     }

@@ -22,14 +22,14 @@ spring:
           max-active: 20
           max-idle: 10
           min-idle: 2
-          
-  # MongoDB配置 - 目标数据存储
-  data:
+    
     mongodb:
       host: localhost
       port: 27017
       database: pulsehub_profiles
-      
+        
+  # MongoDB配置 - 目标数据存储
+  
   # Kafka配置 - 消息队列
   kafka:
     bootstrap-servers: localhost:9092

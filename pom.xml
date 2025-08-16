@@ -35,6 +35,7 @@
         <module>ingestion-service</module>
         <module>event-producer</module>
         <module>profile-service</module>
+        <module>data-sync-service</module>
         <module>discovery-service</module>
     </modules>
 
