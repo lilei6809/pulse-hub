@@ -1,0 +1,115 @@
+# Data Sync Service 应用配置
+server:
+  port: 8087
+  
+spring:
+  application:
+    name: data-sync-service
+    
+  # 使用local profile作为默认配置
+  profiles:
+    active: local
+    
+  # Redis配置 - 用于分布式锁和版本控制
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      database: 0
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+          
+  # MongoDB配置 - 目标数据存储
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: pulsehub_profiles
+      
+  # Kafka配置 - 消息队列
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      retries: 0  # 禁用Kafka自带重试，使用@Retryable
+      acks: 1
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: data-sync-service
+      auto-offset-reset: earliest
+      max-poll-records: 10  # 立即同步消息优先处理
+      fetch-min-size: 1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.pulsehub.*"
+        
+  # 异步任务配置
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 100
+        thread-name-prefix: "data-sync-"
+        
+# 数据同步服务专用配置
+sync:
+  # 批量同步配置
+  batch:
+    interval: 60000        # 批量同步间隔(毫秒) - 1分钟
+    batch-size: 100        # 每批处理的用户数量
+    max-users: 2000        # 最大预处理用户数量
+    timeout: 30000         # 批量处理超时时间(毫秒)
+    
+  # 立即同步配置
+  immediate:
+    timeout: 5000          # 立即同步超时时间(毫秒)
+    retry-count: 3         # 重试次数
+    retry-delay: 1000      # 重试间隔(毫秒)
+    
+  # 分布式锁配置
+  lock:
+    default-timeout: 5000      # 默认锁超时时间(毫秒)
+    immediate-timeout: 10000   # 立即同步锁超时时间(毫秒)
+    batch-timeout: 30000       # 批量同步锁超时时间(毫秒)
+    
+  # Kafka Topic配置
+  topics:
+    profile-sync: "profile-sync-events"
+    
+  # 清理配置
+  cleanup:
+    dirty-flags-ttl: 86400000  # dirty flags TTL(毫秒) - 24小时
+    failed-records-ttl: 604800000  # 失败记录TTL(毫秒) - 7天
+    
+# 监控和管理配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      service: data-sync-service
+    export:
+      prometheus:
+        enabled: true
+        
+# 日志配置
+logging:
+  level:
+    com.pulsehub.datasync: DEBUG
+    com.pulsehub.common.redis: DEBUG
+    org.springframework.kafka: INFO
+    org.springframework.data.mongodb: INFO
+    org.springframework.retry: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
