@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -47,6 +48,9 @@ class RedisVersionManagerTest {
     
     @Mock
     private ValueOperations<String, Object> valueOperations;
+    
+    @Mock
+    private RLock mockLock;
 
     private RedisVersionManager versionManager;
 
@@ -80,8 +84,9 @@ class RedisVersionManagerTest {
         int lockTimeout = 5;
         
         // 模拟锁获取成功
+        when(mockLock.isHeldByCurrentThread()).thenReturn(true);
         RedisDistributedLock.LockInfo lockInfo = RedisDistributedLock.LockInfo.acquired(
-            "lock:profile:user123", "lock-value-123", lockTimeout);
+            "lock:profile:user123", mockLock);
         when(distributedLock.tryLock(anyString(), eq(lockTimeout), eq(TimeUnit.SECONDS)))
             .thenReturn(lockInfo);
         when(distributedLock.unlock(lockInfo)).thenReturn(true);
@@ -144,8 +149,9 @@ class RedisVersionManagerTest {
         int lockTimeout = 5;
         
         // 模拟锁获取成功
+        when(mockLock.isHeldByCurrentThread()).thenReturn(true);
         RedisDistributedLock.LockInfo lockInfo = RedisDistributedLock.LockInfo.acquired(
-            "lock:profile:user123", "lock-value-123", lockTimeout);
+            "lock:profile:user123", mockLock);
         when(distributedLock.tryLock(anyString(), eq(lockTimeout), eq(TimeUnit.SECONDS)))
             .thenReturn(lockInfo);
         when(distributedLock.unlock(lockInfo)).thenReturn(true);
@@ -279,8 +285,9 @@ class RedisVersionManagerTest {
         String reason = "用户注销";
         
         // 模拟锁获取成功
+        when(mockLock.isHeldByCurrentThread()).thenReturn(true);
         RedisDistributedLock.LockInfo lockInfo = RedisDistributedLock.LockInfo.acquired(
-            "lock:profile:user123", "lock-value-456", 10);
+            "lock:profile:user123", mockLock);
         when(distributedLock.tryLock(anyString(), eq(10), eq(TimeUnit.SECONDS)))
             .thenReturn(lockInfo);
         when(distributedLock.unlock(lockInfo)).thenReturn(true);
@@ -329,8 +336,9 @@ class RedisVersionManagerTest {
         int lockTimeout = 5;
         
         // 模拟锁获取成功
+        when(mockLock.isHeldByCurrentThread()).thenReturn(true);
         RedisDistributedLock.LockInfo lockInfo = RedisDistributedLock.LockInfo.acquired(
-            "lock:profile:user123", "lock-value-789", lockTimeout);
+            "lock:profile:user123", mockLock);
         when(distributedLock.tryLock(anyString(), eq(lockTimeout), eq(TimeUnit.SECONDS)))
             .thenReturn(lockInfo);
         when(distributedLock.unlock(lockInfo)).thenReturn(true);

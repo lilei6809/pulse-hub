@@ -24,8 +24,9 @@
         <surefire.plugin.version>3.1.2</surefire.plugin.version>
 
         <spring-cloud.version>2023.0.6</spring-cloud.version>
-
-        <testcontainers.version>1.19.3</testcontainers.version>
+        <redisson.version>3.50.0</redisson.version>
+        <testcontainers.version>3.5.4</testcontainers.version>
+        <testcontainers-redis.version>2.2.2</testcontainers-redis.version>
     </properties>
 
     <modules>
@@ -87,14 +88,29 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- ✅ Testcontainers BOM -->
+            <!-- https://mvnrepository.com/artifact/org.redisson/redisson-spring-boot-starter -->
             <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
             </dependency>
+
+            <!-- ✅ Testcontainers BOM -->
+            <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-testcontainers -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-testcontainers</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.redis</groupId>
+                <artifactId>testcontainers-redis</artifactId>
+                <version>${testcontainers-redis.version}</version>
+                <scope>test</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 

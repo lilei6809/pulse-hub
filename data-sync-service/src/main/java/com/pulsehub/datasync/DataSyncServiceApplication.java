@@ -2,7 +2,7 @@ package com.pulsehub.datasync;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -46,6 +46,7 @@ import java.util.TimeZone;
 @EnableAsync              // 启用异步任务处理
 @EnableScheduling         // 启用定时任务调度
 @EnableRetry              // 启用重试机制
+@EnableDiscoveryClient
 public class DataSyncServiceApplication {
 
     public static void main(String[] args) {
