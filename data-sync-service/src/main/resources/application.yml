@@ -1,179 +1,115 @@
+# Data Sync Service 应用配置
+server:
+  port: 8087
+  
 spring:
   application:
     name: data-sync-service
+    
+  # 使用local profile作为默认配置
   profiles:
-    active: "${SPRING_PROFILES_ACTIVE:local}"
-
-  # Kafka Configuration
-  kafka:
-    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer
-      retries: 0  # Disable Kafka retries, use @Retryable instead
-      properties:
-        schema.registry.url: "${SCHEMA_REGISTRY_URL:http://localhost:8081}"
-    consumer:
-      group-id: data-sync-service-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
-      max-poll-records: 10
-      fetch-min-size: 1
-      properties:
-        schema.registry.url: "${SCHEMA_REGISTRY_URL:http://localhost:8081}"
-        specific.protobuf.value.type: com.pulsehub.datasync.UserProfileSyncEvent
-
-  # Redis Configuration
-  data:
-    redis:
-      host: "${REDIS_HOST:redis}"
-      port: "${REDIS_PORT:6379}"
-      timeout: 3000ms
-      connect-timeout: 3000ms
-      jedis:
-        pool:
-          max-active: 20
-          max-wait: 5000ms
-          max-idle: 10
-          min-idle: 2
-
-  # MongoDB Configuration
-  data:
-    mongodb:
-      uri: "${MONGODB_URI:mongodb://mongo:27017/pulsehub}"
-      database: pulsehub
-
-server:
-  port: "${DATA_SYNC_SERVICE_PORT:8086}"
-
-# Eureka Configuration
-eureka:
-  client:
-    register-with-eureka: true
-    fetch-registry: true
-    service-url:
-      defaultZone: "${EUREKA_URI:http://localhost:8761/eureka}"
-  instance:
-    instance-id: ${spring.application.name}:${random.uuid}
-    lease-renewal-interval-in-seconds: 30
-    prefer-ip-address: true
-
-# Data Sync Configuration
-sync:
-  interval: 60000                    # Batch sync interval (1 minute)
-  batch-size: 100                   # Number of users to process per batch
-  immediate-timeout: 5000           # Immediate sync timeout (5 seconds)
-  topic:
-    profile: profile-sync-events    # Profile sync events topic
-
-# Cache Configuration  
-cache:
-  user-profile:
-    hot-user-ttl: 3600000           # Hot users cache 1 hour
-    active-user-ttl: 7200000        # Active users cache 2 hours
-    inactive-user-ttl: 0            # Inactive users no cache
-    critical-fields-ttl: 1800000    # Critical fields cache 30 minutes
-
-# Redis Distributed Lock Configuration
-redis:
-  lock:
-    default-timeout: 5000           # Default lock timeout 5 seconds
-    immediate-sync-timeout: 10000   # Immediate sync lock timeout 10 seconds
-
-# MongoDB Configuration for immediate sync
-mongodb:
-  max-connections: 20
-  immediate-sync-connections: 5     # Dedicated connections for immediate sync
-
-# Alert Configuration
-alert:
-  immediate-sync-failure: true      # Alert on immediate sync failures
-  critical-operations: true        # Alert on critical operation failures
-
-# Feign Client Configuration
-feign:
-  client:
-    config:
-      default:
-        connect-timeout: 5000
-        read-timeout: 10000
-
-# Management/Actuator Configuration
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, info, metrics, scheduledtasks
-  endpoint:
-    health:
-      show-details: always
-  health:
-    kafka:
-      enabled: true
-    redis:
-      enabled: true
-    mongo:
-      enabled: true
-
-# Logging Configuration
-logging:
-  level:
-    com.pulsehub.datasync: INFO
-    org.springframework.kafka: INFO
-    org.springframework.data.mongodb: INFO
-    org.redisson: WARN
-    org.springframework.retry: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-
----
-# Local Profile
-spring:
-  config:
-    activate:
-      on-profile: local
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      properties:
-        schema.registry.url: http://localhost:8081
-    consumer:
-      properties:
-        schema.registry.url: http://localhost:8081
+    active: local
+    
+  # Redis配置 - 用于分布式锁和版本控制
   data:
     redis:
       host: localhost
       port: 6379
+      timeout: 2000ms
+      database: 0
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+    
     mongodb:
-      uri: mongodb://localhost:27017/pulsehub
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-
----
-# Docker Profile  
-spring:
-  config:
-    activate:
-      on-profile: docker
+      host: localhost
+      port: 27017
+      database: pulsehub_profiles
+        
+  # MongoDB配置 - 目标数据存储
+  
+  # Kafka配置 - 消息队列
   kafka:
-    bootstrap-servers: kafka:29092
+    bootstrap-servers: localhost:9092
     producer:
-      properties:
-        schema.registry.url: http://schema-registry:8081
+      retries: 0  # 禁用Kafka自带重试，使用@Retryable
+      acks: 1
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
+      group-id: data-sync-service
+      auto-offset-reset: earliest
+      max-poll-records: 10  # 立即同步消息优先处理
+      fetch-min-size: 1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        schema.registry.url: http://schema-registry:8081
-  data:
-    redis:
-      host: redis
-      port: 6379
-    mongodb:
-      uri: mongodb://mongo:27017/pulsehub
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://discovery-service:8761/eureka
+        spring.json.trusted.packages: "com.pulsehub.*"
+        
+  # 异步任务配置
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 100
+        thread-name-prefix: "data-sync-"
+        
+# 数据同步服务专用配置
+sync:
+  # 批量同步配置
+  batch:
+    interval: 60000        # 批量同步间隔(毫秒) - 1分钟
+    batch-size: 100        # 每批处理的用户数量
+    max-users: 2000        # 最大预处理用户数量
+    timeout: 30000         # 批量处理超时时间(毫秒)
+    
+  # 立即同步配置
+  immediate:
+    timeout: 5000          # 立即同步超时时间(毫秒)
+    retry-count: 3         # 重试次数
+    retry-delay: 1000      # 重试间隔(毫秒)
+    
+  # 分布式锁配置
+  lock:
+    default-timeout: 5000      # 默认锁超时时间(毫秒)
+    immediate-timeout: 10000   # 立即同步锁超时时间(毫秒)
+    batch-timeout: 30000       # 批量同步锁超时时间(毫秒)
+    
+  # Kafka Topic配置
+  topics:
+    profile-sync: "profile-sync-events"
+    
+  # 清理配置
+  cleanup:
+    dirty-flags-ttl: 86400000  # dirty flags TTL(毫秒) - 24小时
+    failed-records-ttl: 604800000  # 失败记录TTL(毫秒) - 7天
+    
+# 监控和管理配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      service: data-sync-service
+    export:
+      prometheus:
+        enabled: true
+        
+# 日志配置
+logging:
+  level:
+    com.pulsehub.datasync: DEBUG
+    com.pulsehub.common.redis: DEBUG
+    org.springframework.kafka: INFO
+    org.springframework.data.mongodb: INFO
+    org.springframework.retry: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
