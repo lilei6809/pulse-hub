@@ -112,6 +112,25 @@ public class KafkaTopicConfig {
     }
 
     /**
+     * Profile Sync Events Topic (DocSyncProducer)
+     * Handles both immediate sync (critical business data) and batch sync (regular data)
+     */
+    @Bean
+    public NewTopic profileSyncEventsTopic() {
+        KafkaTopicProperties.TopicDefaults defaults = kafkaTopicProperties.getTopicDefaults();
+        return TopicBuilder.name("profile-sync-events")
+                .partitions(kafkaTopicProperties.getPartitions().getOrDefault("profile-sync-events", 6))
+                .replicas(defaults.getReplicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(defaults.getMinInSyncReplicas()))
+                .config(TopicConfig.RETENTION_MS_CONFIG, "86400000") // 1 day - critical sync data
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
+                .config(TopicConfig.SEGMENT_MS_CONFIG, "21600000") // 6 hours
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "snappy") // Fast compression for real-time sync
+                .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576") // 1MB for profile data
+                .build();
+    }
+
+    /**
      * Metrics Events Topic
      */
     @Bean

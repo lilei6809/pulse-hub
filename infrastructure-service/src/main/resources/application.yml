@@ -60,6 +60,7 @@ pulsehub:
     partitions:
       user-activity-events: 10
       profile-update: 5
+      profile-sync-events: 6
       error-events: 3
       dead-letter-queue: 1
       metrics-events: 2

@@ -9,6 +9,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="infrastructure-service" />
         <module name="common" />
+        <module name="data-sync-service" />
         <module name="common-config" />
         <module name="profile-service" />
         <module name="event-producer" />
