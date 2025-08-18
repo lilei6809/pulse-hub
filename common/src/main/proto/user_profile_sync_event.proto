@@ -53,6 +53,8 @@ message UserProfileSyncEvent {
 message ProfileMetadata {
     google.protobuf.Timestamp registration_date = 1;
     google.protobuf.Timestamp last_active_at = 2;
+    google.protobuf.Timestamp
+        lastUpdated = 3;  //profile数据更新时间
 }
 
 /**

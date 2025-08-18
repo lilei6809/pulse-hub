@@ -36,6 +36,9 @@ public class RedissonConfig {
 
     @Value("${spring.data.redis.timeout:3000}")
     private int timeout;
+    
+    @Value("${spring.data.redis.connect-timeout:3000}")
+    private int connectTimeout;
 
     /**
      * 创建Redisson客户端
@@ -54,7 +57,8 @@ public class RedissonConfig {
         config.useSingleServer()
             .setAddress(address)
             .setDatabase(database)
-            .setConnectTimeout(timeout)
+            .setConnectTimeout(connectTimeout)
+            .setTimeout(timeout)
             .setConnectionMinimumIdleSize(1)
             .setConnectionPoolSize(10)
             .setIdleConnectionTimeout(30000)

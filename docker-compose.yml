@@ -232,7 +232,7 @@ services:
     environment:
       # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
-      SPRING_DATA_MONGODB_URI: "mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin"
+      SPRING_DATA_MONGODB_URI: "mongodb://mongodb:27017/${MONGODB_DATABASE}"
       SERVER_PORT: 8084
     ports:
       - "${PROFILE_SERVICE_PORT}:8084"
@@ -280,6 +280,43 @@ services:
       SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - pulsehub-net
+    env_file:
+      - .env.docker
+
+  data-sync-service:
+    build:
+      context: .
+      dockerfile: data-sync-service/Dockerfile
+    container_name: data-sync-service
+    depends_on:
+      infrastructure-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    ports:
+      - "${DATA_SYNC_SERVICE_PORT}:8087"
+    environment:
+      # 这些环境变量需要在容器内重写，因为它们依赖于容器名称
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
+      SPRING_DATA_MONGODB_URI: "mongodb://mongodb:27017/${MONGODB_DATABASE}"
+      REDIS_HOST: "redis"
+      MONGODB_HOST: "mongodb"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8087/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -80,7 +80,6 @@ Redis 数据结构：
 1. 用户资料更新 → 添加 userId 到 dirty_flags
 2. DocSyncProducer 扫描 → 获取属于当前分片的 dirty flags
 3. 发送到 Kafka → 发送成功后删除对应的 dirty flag
-4. Consumer 处理 → 通过 version 控制避免重复更新
 ```
 
 ### **版本控制机制**

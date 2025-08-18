@@ -27,6 +27,7 @@
         <redisson.version>3.50.0</redisson.version>
         <testcontainers.version>3.5.4</testcontainers.version>
         <testcontainers-redis.version>2.2.2</testcontainers-redis.version>
+        <spring-boot-starter-aop.version>3.5.3</spring-boot-starter-aop.version>
     </properties>
 
     <modules>
@@ -109,6 +110,13 @@
                 <artifactId>testcontainers-redis</artifactId>
                 <version>${testcontainers-redis.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-aop -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-aop</artifactId>
+                <version>${spring-boot-starter-aop.version}</version>
             </dependency>
 
         </dependencies>

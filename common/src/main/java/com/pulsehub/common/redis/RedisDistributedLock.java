@@ -37,15 +37,22 @@ public class RedisDistributedLock {
 
     /**
      * 尝试获取分布式锁（非阻塞）
-     * 
+     * - 高并发场景，避免线程阻塞
+     * - 失败后有其他处理逻辑
+     * - 对响应时间要求严格
      * @param lockKey 锁的键名
      * @param expireTime 锁的过期时间
      * @param timeUnit 时间单位
      * @return 锁信息对象，包含锁状态和Redisson锁实例
      */
-    public LockInfo tryLock(String lockKey, long expireTime, TimeUnit timeUnit) {
+    public LockInfo tryNonBlockingLock(String lockKey, long expireTime, TimeUnit timeUnit) {
         try {
             RLock lock = redissonClient.getLock(lockKey);
+            /**
+             * 注意: 此处 tryLock() 中最大等待时间是 0, 立即返回结果，不等待
+             * 如果锁被占用，立即返回失败
+             * 所以是非阻塞的
+             */
             boolean acquired = lock.tryLock(0, expireTime, timeUnit);
             
             if (acquired) {
@@ -64,7 +71,7 @@ public class RedisDistributedLock {
 
     /**
      * 尝试获取可重入锁（Redisson原生支持可重入）
-     * 同一个线程可以多次获取同一把锁
+     * 同一个线程可以多次获取同一把锁(同一个 userId)
      * 
      * @param lockKey 锁的键名
      * @param expireTime 锁的过期时间
@@ -73,22 +80,30 @@ public class RedisDistributedLock {
      */
     public LockInfo tryReentrantLock(String lockKey, long expireTime, TimeUnit timeUnit) {
         // Redisson的RLock原生就是可重入锁，直接使用tryLock方法
-        return tryLock(lockKey, expireTime, timeUnit);
+        return tryNonBlockingLock(lockKey, expireTime, timeUnit);
     }
 
     /**
      * 阻塞式获取分布式锁
      * 会等待直到获取成功或超时
-     * 
+     *   - 必须获取锁才能继续执行
+     *   - 可以接受短暂等待
+     *   - 业务逻辑要求互斥执行
      * @param lockKey 锁的键名
      * @param expireTime 锁的过期时间
      * @param timeUnit 时间单位
      * @param maxWaitTime 最大等待时间
      * @return 锁信息对象
      */
-    public LockInfo lock(String lockKey, long expireTime, TimeUnit timeUnit, long maxWaitTime) {
+    public LockInfo tryBlockingLock(String lockKey, long expireTime, TimeUnit timeUnit, long maxWaitTime) {
         try {
             RLock lock = redissonClient.getLock(lockKey);
+
+            /**
+             * 注意: 此处 tryLock() 中是有 最大等待时间的,
+             * 会等待指定时间直到获取成功或超时
+             * 在等待期间线程被阻塞
+             */
             boolean acquired = lock.tryLock(maxWaitTime, expireTime, timeUnit);
             
             if (acquired) {
@@ -201,6 +216,7 @@ public class RedisDistributedLock {
     public LockInfo getFairLock(String lockKey, long expireTime, TimeUnit timeUnit, long maxWaitTime) {
         try {
             RLock lock = redissonClient.getFairLock(lockKey);
+            // 阻塞
             boolean acquired = lock.tryLock(maxWaitTime, expireTime, timeUnit);
             
             if (acquired) {

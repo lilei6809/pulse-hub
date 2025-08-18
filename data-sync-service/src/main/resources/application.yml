@@ -1,6 +1,6 @@
 # Data Sync Service 应用配置
 server:
-  port: 8087
+  port: "${Data_Sync_Service_PORT:8087}"
   
 spring:
   application:
@@ -8,31 +8,31 @@ spring:
     
   # 使用local profile作为默认配置
   profiles:
-    active: local
+    active: "${SPRING_PROFILES_ACTIVE:local}"  # 默认本地
     
   # Redis配置 - 用于分布式锁和版本控制
   data:
     redis:
-      host: localhost
-      port: 6379
-      timeout: 2000ms
-      database: 0
-      lettuce:
+      host: "${REDIS_HOST:localhost}"
+      port: "${REDIS_PORT:6379}"
+      timeout: 3000
+      connect-timeout: 3000
+      jedis:
         pool:
-          max-active: 20
-          max-idle: 10
-          min-idle: 2
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
     
     mongodb:
-      host: localhost
-      port: 27017
-      database: pulsehub_profiles
+      uri: "${SPRING_DATA_MONGODB_URI:mongodb://${MONGODB_HOST:localhost}:${MONGODB_PORT:27017}/${MONGODB_DATABASE:pulsehub_profiles}}"
+      database: "${MONGODB_DATABASE:pulsehub_profiles}"
         
   # MongoDB配置 - 目标数据存储
   
   # Kafka配置 - 消息队列
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
     producer:
       retries: 0  # 禁用Kafka自带重试，使用@Retryable
       acks: 1
@@ -48,15 +48,13 @@ spring:
       properties:
         spring.json.trusted.packages: "com.pulsehub.*"
         
-  # 异步任务配置
+  # 异步任务配置, 线程池配置
   task:
     execution:
       pool:
         core-size: 5
         max-size: 20
         queue-capacity: 100
-        thread-name-prefix: "data-sync-"
-        
 # 数据同步服务专用配置
 sync:
   # 批量同步配置
@@ -65,28 +63,28 @@ sync:
     batch-size: 100        # 每批处理的用户数量
     max-users: 2000        # 最大预处理用户数量
     timeout: 30000         # 批量处理超时时间(毫秒)
-    
+
   # 立即同步配置
   immediate:
     timeout: 5000          # 立即同步超时时间(毫秒)
     retry-count: 3         # 重试次数
     retry-delay: 1000      # 重试间隔(毫秒)
-    
+
   # 分布式锁配置
   lock:
     default-timeout: 5000      # 默认锁超时时间(毫秒)
     immediate-timeout: 10000   # 立即同步锁超时时间(毫秒)
     batch-timeout: 30000       # 批量同步锁超时时间(毫秒)
-    
+
   # Kafka Topic配置
   topics:
     profile-sync: "profile-sync-events"
-    
+
   # 清理配置
   cleanup:
     dirty-flags-ttl: 86400000  # dirty flags TTL(毫秒) - 24小时
     failed-records-ttl: 604800000  # 失败记录TTL(毫秒) - 7天
-    
+
 # 监控和管理配置
 management:
   endpoints:
@@ -99,10 +97,10 @@ management:
   metrics:
     tags:
       service: data-sync-service
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
-        
 # 日志配置
 logging:
   level:

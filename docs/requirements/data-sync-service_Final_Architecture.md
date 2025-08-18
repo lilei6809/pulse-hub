@@ -1,4 +1,4 @@
-# DocSyncProducer 最终架构设计方案
+# data-sync-service 最终架构设计方案
 
 ## **业务需求概览**
 
@@ -23,11 +23,6 @@
 **混合同步策略**: 
 - **立即同步**: 关键业务字段 (status, permissions, vip_level) - 保证业务安全
 - **批量同步**: 行为数据和统计信息 - 优化性能
-- **智能缓存**: Redis分层缓存策略 - 控制成本
-  - vip用户, 重要用户, 活跃用户全量缓存
-  - 普通用户只缓存关键字段
-  - 非活跃用户: 直接查 mongoDB
-
 - **降级机制**: Redis失败时自动降级到持久化存储 - 保证可用性
 
 ### **2. 混合数据流**
@@ -68,67 +63,11 @@
   - Redis失败时降级到PostgreSQL + MongoDB
   - 异步回写Redis缓存
 
-### **4. 增强版本一致性解决方案** ✅
 
-#### **采用方案: Redis + MongoDB双重版本管理**
-
-**核心原理**:
-
-1. **Redis版本控制**: 在Redis中也存储版本信息，防止并发更新冲突
-2. **分布式锁**: 使用Redis分布式锁保证更新原子性
-3. **版本同步**: data-sync-service统一管理版本递增和同步
-4. **乐观锁检查**: MongoDB消费者使用乐观锁，确保版本连续性
-
-**详细流程**:
 
 ```java
-// Redis数据结构
-RedisProfileData {
-    profileData: Map<String, Object>
-    version: Long        // 关键: Redis中也保存版本
-    lastUpdated: Instant
-}
-
-// 更新流程
-1. 获取分布式锁 profile_lock:{userId}
-2. 读取Redis当前版本 currentVersion
-3. 更新Redis数据，version = currentVersion + 1  
-4. 调用data-sync-service同步，携带新版本号
-5. 释放分布式锁
-    
-    
-    
-    每次用户事件更新时的流程：
-
-  1. 获取分布式锁 profile_lock:{userId} （短期锁，5-10秒）
-  2. 读取Redis当前版本 currentVersion
-  3. 更新Redis数据，version = currentVersion + 1
-  4. 根据数据重要性选择同步策略：
-    - 关键数据：立即调用data-sync-service同步
-    - 普通数据：标记dirty flag，等待批量同步
-  5. 立即释放分布式锁
-
-  你的疑问解答
-
-  Q: 每次用户event都需要获取分布式锁吗？
-  - 是的，每次更新都需要获取锁，但是锁的持有时间很短（5-10秒）
-  - 锁的目的是保证Redis版本号的原子性更新，避免并发更新导致版本冲突
-
-  Q: 更新完Redis后要等到batch sync才释放锁吗？
-  - 不是的！锁在Redis更新完成后立即释放
-  - 批量同步是异步进行的，不会持有锁
-
-  Q: 如果这段时间发生了多次更新呢？
-  - 每次更新都是独立的锁操作
-  - 每次更新都会递增版本号
-  - 多次更新会产生多个版本，都会被正确处理
 
 ```
-
-**优势**: 
-- **防止并发冲突**: 分布式锁 + 版本检查
-- **数据一致性**: Redis和MongoDB版本号保持同步
-- **容错性好**: 版本冲突时可以重试或记录日志
 
 ---
 
@@ -186,11 +125,12 @@ enum SyncPriority {
 - **优先级区分**: SyncPriority区分立即同步和批量同步
 - **增量更新**: 支持按UserProfileDocument的数据分区进行增量更新
 - **类型安全**: 通过protobuf保证跨服务数据一致性
-- **版本控制**: 携带版本号确保数据一致性
 
-### **2. 核心服务实现(所有 data-sync 有关的服务在 data-sync-service 中实现)**
 
-#### **data-sync-service增强接口**
+
+### 2.核心服务实现(所有 data-sync 有关的服务在 data-sync-service 中实现)
+
+### **data-sync-service增强接口**
 ```java
 @RestController
 @RequestMapping("/sync")
@@ -225,28 +165,7 @@ public class DataSyncService {
     public void syncImmediate(String userId, Map<String, Object> updates) {
         String lockKey = "sync_immediate:" + userId;
         
-        if (redisLock.tryLock(lockKey, 10, TimeUnit.SECONDS)) {
-            try {
-                // 1. 从Redis获取当前版本
-                RedisProfileData currentData = getRedisProfileData(userId);
-                Long newVersion = (currentData != null ? currentData.getVersion() : 0L) + 1;
-                
-                // 2. 创建立即同步事件
-                UserProfileSyncEvent event = buildSyncEvent(
-                    userId, updates, newVersion, SyncPriority.IMMEDIATE
-                );
-                
-                // 3. 立即发送到Kafka
-                kafkaTemplate.send(SyncConstants.TOPIC_PROFILE_SYNC, event);
-                
-                log.info("Immediate sync triggered for user: {}, version: {}", userId, newVersion);
-                
-            } finally {
-                redisLock.unlock(lockKey);
-            }
-        } else {
-            throw new SyncException("Failed to acquire lock for immediate sync: " + userId);
-        }
+       
     }
     
     // 标记批量同步
@@ -279,7 +198,7 @@ public class DataSyncService {
                 // 2. 创建批量同步事件
                 UserProfileSyncEvent event = buildSyncEvent(
                     userId, redisData.getProfileData(), 
-                    redisData.getVersion(), SyncPriority.BATCH
+                    SyncPriority.BATCH
                 );
                 
                 // 3. 发送到Kafka
@@ -402,7 +321,6 @@ public class ProfileService {
         RedisProfileData newData = new RedisProfileData();
         newData.setProfileData(new HashMap<>(currentData.getProfileData()));
         newData.getProfileData().putAll(updates);
-        newData.setVersion(currentVersion + 1);
         newData.setLastUpdated(Instant.now());
         
         // 原子写入Redis
@@ -737,42 +655,46 @@ public void syncToKafka(UserProfileSyncEvent event) {
       - RedisProfileData 数据模型
       - Maven 编译配置
 
-    - [ ] **实现 Redis 版本控制和分布式锁**
+    - [x] **实现 Redis 布式锁**
       - RedisDistributedLock 实现
-      - RedisProfileData 版本管理
       - 原子更新操作
-
+        - ☐ 在common模块中创建Redis工具包
+               ☐ 实现RedisDistributedLock通用组件
+               ☐ 实现RedisProfileData版本管理模型
+               ☐ 实现原子更新操作方法
+               ☐ 在data-sync-service中集成Redis工具
+      
     - [ ] **实现 data-sync-service 混合同步功能**
       - 立即同步 API 和逻辑 (关键业务数据)
       - DocSyncProducer 定时任务 (批量同步)
       - Redis dirty flags 处理
       - 智能同步策略选择
-
+    
     - [ ] **实现 MongoDB 增量更新消费者**
       - Kafka 消费者配置 (优先级处理)
       - 版本控制 + 乐观锁更新
       - 立即同步失败重试机制
       - 告警集成
-
+    
     - [ ] **实现 profile-service 分层缓存和智能调用**
       - 分层缓存策略 (热点 / 活跃 / 非活跃用户)
       - 多级降级查询
       - 智能同步策略选择
       - Feign Client 配置 (立即同步 + 批量同步)
-
+    
     - [ ] **编写单元测试和集成测试**
       - Redis 版本控制测试
       - 分布式锁测试
       - 立即同步 vs 批量同步测试
       - 降级机制测试
       - 端到端集成测试
-
+    
     - [ ] **配置 Docker Compose 集成**
       - data-sync-service 容器配置
       - Redis 分布式锁配置
       - MongoDB 连接池配置
       - 服务依赖关系
-
+    
     - [ ] **验证完整的数据流和提交代码**
       - 立即同步流程测试
       - 批量同步流程测试
@@ -782,7 +704,7 @@ public void syncToKafka(UserProfileSyncEvent event) {
 
 
     ### **Phase 2 扩展任务**
-
+    
     - [ ] 实现多实例分片处理机制  
     - [ ] 完善错误处理和 DLQ 机制  
     - [ ] 添加监控和指标收集  

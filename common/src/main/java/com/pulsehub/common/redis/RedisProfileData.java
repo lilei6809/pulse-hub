@@ -13,18 +13,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Redis用户Profile数据版本管理模型
+ * Redis用户Profile数据模型
  * 
  * 核心功能：
- * 1. 版本化数据存储 - 每次更新都会递增版本号
- * 2. 乐观锁支持 - 基于版本号的并发控制
- * 3. 原子更新 - 支持条件更新，防止数据覆盖
- * 4. 时间戳追踪 - 记录创建和最后更新时间
- * 5. 数据完整性 - 内置数据验证和一致性检查
+ * 2. 时间戳追踪 - 记录创建和最后更新时间
+ * 3. 数据完整性 - 内置数据验证和一致性检查
+ * 4. 高性能更新 - 线程安全的数据操作
  * 
  * 数据结构：
  * - profileData: 实际的用户profile数据(Map结构，支持动态字段)
- * - version: 数据版本号(Long类型，严格递增)
  * - createdAt: 数据创建时间戳
  * - lastUpdated: 最后更新时间戳
  * - metadata: 元数据信息(如数据来源、更新原因等)
@@ -32,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 使用场景：
  * - 用户profile的缓存存储
  * - 分布式环境下的数据同步
- * - 版本冲突检测和解决
+ * - Redis内部数据一致性保证
  * 
  * @author PulseHub Team
  * @since 1.0.0
@@ -51,12 +48,6 @@ public class RedisProfileData {
     @Builder.Default
     private Map<String, Object> profileData = new ConcurrentHashMap<>();
 
-    /**
-     * 数据版本号
-     * 每次更新时递增，用于乐观锁控制
-     */
-    @Builder.Default
-    private Long version = 1L;
 
     /**
      * 数据创建时间戳
@@ -69,6 +60,12 @@ public class RedisProfileData {
      */
     @Builder.Default
     private Instant lastUpdated = Instant.now();
+
+    /**
+     * 仅用于 mongodb 乐观锁
+     */
+    @Builder.Default
+    private Long version = 1L;
 
     /**
      * 元数据信息
@@ -101,7 +98,6 @@ public class RedisProfileData {
         
         return RedisProfileData.builder()
             .profileData(profileData)
-            .version(1L)
             .createdAt(Instant.now())
             .lastUpdated(Instant.now())
             .metadata(metadata)
@@ -119,30 +115,22 @@ public class RedisProfileData {
     }
 
     /**
-     * 基于版本检查的条件更新
-     * 只有当前版本号匹配时才执行更新
+     * 简单更新数据
+     * 直接更新数据并递增版本号
      * 
-     * @param expectedVersion 期望的版本号
      * @param updates 要更新的数据
      * @param source 更新来源标识
      * @return 更新结果对象
      */
-    public UpdateResult updateIfVersionMatch(Long expectedVersion, Map<String, Object> updates, String source) {
-        if (expectedVersion == null || updates == null || updates.isEmpty()) {
-            log.warn("更新参数无效: expectedVersion={}, updates={}", expectedVersion, updates);
-            return UpdateResult.failed("参数无效", this.version);
-        }
-
-        // 版本检查
-        if (!this.version.equals(expectedVersion)) {
-            log.warn("版本冲突: 期望版本={}, 当前版本={}", expectedVersion, this.version);
-            return UpdateResult.conflict("版本冲突", expectedVersion, this.version);
+    public UpdateResult update(Map<String, Object> updates, String source) {
+        if (updates == null || updates.isEmpty()) {
+            log.warn("更新参数无效: updates={}", updates);
+            return UpdateResult.failed("参数无效");
         }
 
         try {
             // 执行更新
             this.profileData.putAll(updates);
-            this.version = expectedVersion + 1;
             this.lastUpdated = Instant.now();
             
             // 更新元数据
@@ -150,14 +138,14 @@ public class RedisProfileData {
             this.metadata.put("lastOperation", "update");
             this.metadata.put("updateCount", getUpdateCount() + 1);
             
-            log.debug("成功更新profile数据: 新版本={}, 更新字段数={}, 来源={}", 
-                this.version, updates.size(), source);
+            log.debug("成功更新profile数据: 更新字段数={}, 来源={}", 
+                updates.size(), source);
             
-            return UpdateResult.success("更新成功", this.version - 1, this.version);
+            return UpdateResult.success("更新成功");
             
         } catch (Exception e) {
-            log.error("更新profile数据失败: expectedVersion={}, source={}", expectedVersion, source, e);
-            return UpdateResult.failed("更新异常: " + e.getMessage(), this.version);
+            log.error("更新profile数据失败: source={}", source, e);
+            return UpdateResult.failed("更新异常: " + e.getMessage());
         }
     }
 
@@ -172,14 +160,11 @@ public class RedisProfileData {
      */
     public UpdateResult forceUpdate(Map<String, Object> updates, String source, String reason) {
         if (updates == null || updates.isEmpty()) {
-            return UpdateResult.failed("更新数据为空", this.version);
+            return UpdateResult.failed("更新数据为空");
         }
 
         try {
-            Long oldVersion = this.version;
-            
             this.profileData.putAll(updates);
-            this.version = oldVersion + 1;
             this.lastUpdated = Instant.now();
             
             // 记录强制更新的元数据
@@ -188,14 +173,13 @@ public class RedisProfileData {
             this.metadata.put("lastSource", source);
             this.metadata.put("lastOperation", "force_update");
             
-            log.warn("执行强制更新: 版本 {} -> {}, 原因: {}, 来源: {}", 
-                oldVersion, this.version, reason, source);
+            log.warn("执行强制更新: 原因: {}, 来源: {}", reason, source);
             
-            return UpdateResult.success("强制更新成功", oldVersion, this.version);
+            return UpdateResult.success("强制更新成功");
             
         } catch (Exception e) {
             log.error("强制更新失败: source={}, reason={}", source, reason, e);
-            return UpdateResult.failed("强制更新异常: " + e.getMessage(), this.version);
+            return UpdateResult.failed("强制更新异常: " + e.getMessage());
         }
     }
 
@@ -205,14 +189,13 @@ public class RedisProfileData {
      * 
      * @param fieldName 字段名
      * @param newValue 新值
-     * @param expectedVersion 期望版本
      * @param source 更新来源
      * @return 更新结果
      */
-    public UpdateResult updateField(String fieldName, Object newValue, Long expectedVersion, String source) {
+    public UpdateResult updateField(String fieldName, Object newValue, String source) {
         Map<String, Object> updates = new HashMap<>();
         updates.put(fieldName, newValue);
-        return updateIfVersionMatch(expectedVersion, updates, source);
+        return update(updates, source);
     }
 
     /**
@@ -290,10 +273,6 @@ public class RedisProfileData {
     public ValidationResult validate() {
         try {
             // 基本字段检查
-            if (version == null || version <= 0) {
-                return ValidationResult.invalid("版本号无效: " + version);
-            }
-            
             if (createdAt == null || lastUpdated == null) {
                 return ValidationResult.invalid("时间戳缺失");
             }
@@ -327,7 +306,6 @@ public class RedisProfileData {
     public RedisProfileData createSnapshot() {
         return RedisProfileData.builder()
             .profileData(new HashMap<>(this.profileData))
-            .version(this.version)
             .createdAt(this.createdAt)
             .lastUpdated(this.lastUpdated)
             .metadata(new HashMap<>(this.metadata))
@@ -346,11 +324,6 @@ public class RedisProfileData {
             return ComparisonResult.of(false, "比较对象为null");
         }
         
-        if (!this.version.equals(other.version)) {
-            return ComparisonResult.of(false, 
-                String.format("版本不同: %d vs %d", this.version, other.version));
-        }
-        
         if (!this.profileData.equals(other.profileData)) {
             return ComparisonResult.of(false, "profile数据不同");
         }
@@ -360,8 +333,8 @@ public class RedisProfileData {
 
     @Override
     public String toString() {
-        return String.format("RedisProfileData{version=%d, fieldsCount=%d, age=%ds, lastUpdated=%s}", 
-            version, profileData.size(), getAgeInSeconds(), lastUpdated);
+        return String.format("RedisProfileData{fieldsCount=%d, age=%ds, lastUpdated=%s}", 
+            profileData.size(), getAgeInSeconds(), lastUpdated);
     }
 
     /**
@@ -370,42 +343,31 @@ public class RedisProfileData {
     public static class UpdateResult {
         private final boolean success;
         private final String message;
-        private final Long oldVersion;
-        private final Long newVersion;
         private final String type;
 
-        private UpdateResult(boolean success, String message, Long oldVersion, Long newVersion, String type) {
+        private UpdateResult(boolean success, String message, String type) {
             this.success = success;
             this.message = message;
-            this.oldVersion = oldVersion;
-            this.newVersion = newVersion;
             this.type = type;
         }
 
-        public static UpdateResult success(String message, Long oldVersion, Long newVersion) {
-            return new UpdateResult(true, message, oldVersion, newVersion, "SUCCESS");
+        public static UpdateResult success(String message) {
+            return new UpdateResult(true, message, "SUCCESS");
         }
 
-        public static UpdateResult failed(String message, Long currentVersion) {
-            return new UpdateResult(false, message, currentVersion, currentVersion, "FAILED");
-        }
-
-        public static UpdateResult conflict(String message, Long expectedVersion, Long currentVersion) {
-            return new UpdateResult(false, message, expectedVersion, currentVersion, "CONFLICT");
+        public static UpdateResult failed(String message) {
+            return new UpdateResult(false, message, "FAILED");
         }
 
         // Getters
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
-        public Long getOldVersion() { return oldVersion; }
-        public Long getNewVersion() { return newVersion; }
         public String getType() { return type; }
-        public boolean isConflict() { return "CONFLICT".equals(type); }
 
         @Override
         public String toString() {
-            return String.format("UpdateResult{success=%s, type=%s, version=%d->%d, message='%s'}", 
-                success, type, oldVersion, newVersion, message);
+            return String.format("UpdateResult{success=%s, type=%s, message='%s'}", 
+                success, type, message);
         }
     }
 
