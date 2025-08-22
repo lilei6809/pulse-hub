@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 /**
  * Kafka Streams Event Router
@@ -66,7 +66,7 @@ public class EventRouter {
                         (userId, event) -> isImmediateSync(event),
                         Branched.withConsumer(immediateStream -> {
                             immediateStream.to(immediateSyncTopicName);
-                            log.debug("Routed IMMEDIATE sync event for user: {}", userId);
+
                         })
                 )
                 // 批量同步分支 - 普通数据
@@ -74,7 +74,7 @@ public class EventRouter {
                         (userId, event) -> isBatchSync(event),
                         Branched.withConsumer(batchStream -> {
                             batchStream.to(batchSyncTopicName);
-                            log.debug("Routed BATCH sync event for user: {}", userId);
+
                         })
                 )
                 // 默认分支 - 处理未知优先级

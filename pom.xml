@@ -20,7 +20,7 @@
         <spring-boot.version>3.3.0</spring-boot.version> <!-- Use a recent, stable version -->
         <protobuf.version>3.25.1</protobuf.version>
         <confluent.version>7.4.1</confluent.version>
-        <kafka-streams.version>4.0.0</kafka-streams.version>
+        <kafka-streams.version>3.7.0</kafka-streams.version>
         <surefire.plugin.version>3.1.2</surefire.plugin.version>
         <spring-cloud-stream-binder-kafka-streams.version>4.3.0</spring-cloud-stream-binder-kafka-streams.version>
         <spring-cloud.version>2023.0.6</spring-cloud.version>
@@ -29,6 +29,7 @@
         <testcontainers-redis.version>2.2.2</testcontainers-redis.version>
         <spring-boot-starter-aop.version>3.5.3</spring-boot-starter-aop.version>
         <postgresql.version>42.7.2</postgresql.version>
+        <jakarta.annotation-api.version>2.1.1</jakarta.annotation-api.version>
     </properties>
 
     <modules>
@@ -63,6 +64,14 @@
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
             </dependency>
+
+
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <version>${jakarta.annotation-api.version}</version>
+            </dependency>
+
 
             <!-- Protobuf and Confluent Dependencies -->
             <dependency>

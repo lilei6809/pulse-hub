@@ -41,7 +41,7 @@ public class BatchSyncConsumer {
      * - concurrency: 5 (配置文件中设置)
      * - 批量消息处理 (max-poll-records: 10)
      */
-    @Timed(name = "batch.sync.duration", description = "批量同步处理时间")
+    @Timed(value = "batch.sync.duration", description = "批量同步处理时间")
     @Retryable(
             retryFor = Exception.class,
             maxAttempts = 2,

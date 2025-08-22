@@ -48,7 +48,7 @@ public class ImmediateSyncConsumer {
      * - concurrency: 2 (配置文件中设置)
      * - 单条消息处理 (max-poll-records: 1)
      */
-    @Timed(name = "immediate.sync.duration", description = "立即同步处理时间")
+    @Timed(value = "immediate.sync.duration", description = "立即同步处理时间")
     @Retryable(
             retryFor = Exception.class,
             maxAttempts = 3,

@@ -2,15 +2,19 @@ package com.pulsehub.datasync.router;
 
 import com.pulsehub.datasync.proto.SyncPriority;
 import com.pulsehub.datasync.proto.UserProfileSyncEvent;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.streams.test.TestRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.*;
+import org.apache.kafka.streams.kstream.Branched;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.Properties;
 
@@ -28,9 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EventRouterTest {
 
     private TopologyTestDriver testDriver;
-    private TestInputTopic<String, UserProfileSyncEvent> inputTopic;
-    private TestOutputTopic<String, UserProfileSyncEvent> immediateOutputTopic;
-    private TestOutputTopic<String, UserProfileSyncEvent> batchOutputTopic;
+    private TestInputTopic<String, byte[]> inputTopic;
+    private TestOutputTopic<String, byte[]> immediateOutputTopic;
+    private TestOutputTopic<String, byte[]> batchOutputTopic;
 
     @Mock
     private StreamsBuilder streamsBuilder;
@@ -40,16 +44,30 @@ class EventRouterTest {
         // 创建测试用的StreamsBuilder和Topology
         StreamsBuilder realStreamsBuilder = new StreamsBuilder();
         
-        // 模拟EventRouter的路由逻辑
-        var sourceStream = realStreamsBuilder.stream("profile-sync-events");
+        // 模拟EventRouter的路由逻辑 - 处理字节数组
+        var sourceStream = realStreamsBuilder.<String, byte[]>stream("profile-sync-events");
         sourceStream
             .split()
             .branch(
-                (key, event) -> ((UserProfileSyncEvent) event).getPriority() == SyncPriority.IMMEDIATE,
+                (key, eventBytes) -> {
+                    try {
+                        UserProfileSyncEvent event = UserProfileSyncEvent.parseFrom(eventBytes);
+                        return event.getPriority() == SyncPriority.IMMEDIATE;
+                    } catch (InvalidProtocolBufferException e) {
+                        return false;
+                    }
+                },
                 Branched.withConsumer(stream -> stream.to("immediate-sync-events"))
             )
             .branch(
-                (key, event) -> ((UserProfileSyncEvent) event).getPriority() == SyncPriority.BATCH,
+                (key, eventBytes) -> {
+                    try {
+                        UserProfileSyncEvent event = UserProfileSyncEvent.parseFrom(eventBytes);
+                        return event.getPriority() == SyncPriority.BATCH;
+                    } catch (InvalidProtocolBufferException e) {
+                        return false;
+                    }
+                },
                 Branched.withConsumer(stream -> stream.to("batch-sync-events"))
             )
             .defaultBranch(
@@ -65,77 +83,79 @@ class EventRouterTest {
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, 
                   org.apache.kafka.common.serialization.Serdes.String().getClass().getName());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, 
-                  org.springframework.kafka.support.serializer.JsonSerde.class.getName());
+                  org.apache.kafka.common.serialization.Serdes.ByteArray().getClass().getName());
 
         testDriver = new TopologyTestDriver(topology, config);
 
-        // 创建测试主题
+        // 创建测试主题 - 使用字节数组序列化Protobuf
         inputTopic = testDriver.createInputTopic(
             "profile-sync-events",
             new StringSerializer(),
-            new JsonSerializer<UserProfileSyncEvent>()
+            new ByteArraySerializer()
         );
 
         immediateOutputTopic = testDriver.createOutputTopic(
             "immediate-sync-events",
             new org.apache.kafka.common.serialization.StringDeserializer(),
-            new org.springframework.kafka.support.serializer.JsonDeserializer<>(UserProfileSyncEvent.class)
+            new ByteArrayDeserializer()
         );
 
         batchOutputTopic = testDriver.createOutputTopic(
             "batch-sync-events", 
             new org.apache.kafka.common.serialization.StringDeserializer(),
-            new org.springframework.kafka.support.serializer.JsonDeserializer<>(UserProfileSyncEvent.class)
+            new ByteArrayDeserializer()
         );
     }
 
     @Test
-    void shouldRouteImmediateSyncEventToImmediateTopic() {
+    void shouldRouteImmediateSyncEventToImmediateTopic() throws InvalidProtocolBufferException {
         // Given: 立即同步事件
         UserProfileSyncEvent immediateEvent = createUserProfileSyncEvent("user123", SyncPriority.IMMEDIATE);
 
         // When: 发送事件到输入Topic
-        inputTopic.pipeInput("user123", immediateEvent);
+        inputTopic.pipeInput("user123", immediateEvent.toByteArray());
 
         // Then: 验证事件路由到立即同步Topic
         assertThat(immediateOutputTopic.isEmpty()).isFalse();
         assertThat(batchOutputTopic.isEmpty()).isTrue();
 
-        ProducerRecord<String, UserProfileSyncEvent> record = immediateOutputTopic.readRecord();
+        TestRecord<String, byte[]> record = immediateOutputTopic.readRecord();
+        UserProfileSyncEvent receivedEvent = UserProfileSyncEvent.parseFrom(record.value());
         assertThat(record.key()).isEqualTo("user123");
-        assertThat(record.value().getUserId()).isEqualTo("user123");
-        assertThat(record.value().getPriority()).isEqualTo(SyncPriority.IMMEDIATE);
+        assertThat(receivedEvent.getUserId()).isEqualTo("user123");
+        assertThat(receivedEvent.getPriority()).isEqualTo(SyncPriority.IMMEDIATE);
     }
 
     @Test
-    void shouldRouteBatchSyncEventToBatchTopic() {
+    void shouldRouteBatchSyncEventToBatchTopic() throws InvalidProtocolBufferException {
         // Given: 批量同步事件
         UserProfileSyncEvent batchEvent = createUserProfileSyncEvent("user456", SyncPriority.BATCH);
 
         // When: 发送事件到输入Topic
-        inputTopic.pipeInput("user456", batchEvent);
+        inputTopic.pipeInput("user456", batchEvent.toByteArray());
 
         // Then: 验证事件路由到批量同步Topic
         assertThat(batchOutputTopic.isEmpty()).isFalse();
         assertThat(immediateOutputTopic.isEmpty()).isTrue();
 
-        ProducerRecord<String, UserProfileSyncEvent> record = batchOutputTopic.readRecord();
+        TestRecord<String, byte[]> record = batchOutputTopic.readRecord();
+        UserProfileSyncEvent receivedEvent = UserProfileSyncEvent.parseFrom(record.value());
         assertThat(record.key()).isEqualTo("user456");
-        assertThat(record.value().getUserId()).isEqualTo("user456");
-        assertThat(record.value().getPriority()).isEqualTo(SyncPriority.BATCH);
+        assertThat(receivedEvent.getUserId()).isEqualTo("user456");
+        assertThat(receivedEvent.getPriority()).isEqualTo(SyncPriority.BATCH);
     }
 
     @Test
-    void shouldRouteMultipleEventsCorrectly() {
+    void shouldRouteMultipleEventsCorrectly() throws InvalidProtocolBufferException {
         // Given: 混合优先级事件
         UserProfileSyncEvent immediateEvent1 = createUserProfileSyncEvent("user111", SyncPriority.IMMEDIATE);
         UserProfileSyncEvent batchEvent1 = createUserProfileSyncEvent("user222", SyncPriority.BATCH);
         UserProfileSyncEvent immediateEvent2 = createUserProfileSyncEvent("user333", SyncPriority.IMMEDIATE);
 
         // When: 发送多个事件
-        inputTopic.pipeInput("user111", immediateEvent1);
-        inputTopic.pipeInput("user222", batchEvent1);
-        inputTopic.pipeInput("user333", immediateEvent2);
+        inputTopic.pipeInput("user111", immediateEvent1.toByteArray());
+        inputTopic.pipeInput("user222", batchEvent1.toByteArray());
+        inputTopic.pipeInput("user333", immediateEvent2.toByteArray());
 
         // Then: 验证路由正确性
         // 验证立即同步Topic收到2个事件
@@ -143,13 +163,16 @@ class EventRouterTest {
         var immediateRecord1 = immediateOutputTopic.readRecord();
         var immediateRecord2 = immediateOutputTopic.readRecord();
         
-        assertThat(immediateRecord1.value().getUserId()).isEqualTo("user111");
-        assertThat(immediateRecord2.value().getUserId()).isEqualTo("user333");
+        UserProfileSyncEvent receivedImmediate1 = UserProfileSyncEvent.parseFrom(immediateRecord1.value());
+        UserProfileSyncEvent receivedImmediate2 = UserProfileSyncEvent.parseFrom(immediateRecord2.value());
+        assertThat(receivedImmediate1.getUserId()).isEqualTo("user111");
+        assertThat(receivedImmediate2.getUserId()).isEqualTo("user333");
 
         // 验证批量同步Topic收到1个事件
         assertThat(batchOutputTopic.getQueueSize()).isEqualTo(1);
         var batchRecord = batchOutputTopic.readRecord();
-        assertThat(batchRecord.value().getUserId()).isEqualTo("user222");
+        UserProfileSyncEvent receivedBatch = UserProfileSyncEvent.parseFrom(batchRecord.value());
+        assertThat(receivedBatch.getUserId()).isEqualTo("user222");
     }
 
     /**
