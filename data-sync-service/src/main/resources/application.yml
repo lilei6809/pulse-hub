@@ -1,6 +1,18 @@
 # Data Sync Service 应用配置
 server:
   port: "${Data_Sync_Service_PORT:8087}"
+
+# 事件路由
+event-routing:
+  default-strategy: BATCH_SYNC
+  immediate-sync-exceptions:
+    - ACCOUNT_STATUS_CHANGE
+    - PERMISSION_UPDATE
+    - VIP_LEVEL_CHANGE
+    - ORDER_CREATED
+    - ORDER_PAYED
+    - ORDER_CANCELLED
+
   
 spring:
   application:
@@ -39,14 +51,35 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
-      group-id: data-sync-service
-      auto-offset-reset: earliest
-      max-poll-records: 10  # 立即同步消息优先处理
-      fetch-min-size: 1
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      immediate-sync-group:
+        group-id: immediate-sync-group
+        auto-offset-reset: earliest
+        max-poll-records: 1        # 立即同步单条处理
+        fetch-min-size: 1
+        concurrency: 2             # 2个并发消费者
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      batch-sync-group:
+        group-id: batch-sync-group
+        auto-offset-reset: earliest
+        max-poll-records: 10       # 批量同步10条处理
+        fetch-min-size: 1024
+        concurrency: 5             # 5个并发消费者
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.pulsehub.*"
+    # Kafka Streams 事件路由器配置
+    streams:
+      application-id: data-sync-router
+      bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+      properties:
+        processing.guarantee: exactly_once_v2  # 确保不重复路由
+        num.stream.threads: 1                  # 单线程处理路由逻辑
+        cache.max.bytes.buffering: 0           # 禁用缓存，保证实时路由
+        commit.interval.ms: 1000               # 1秒提交一次offset
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        default.value.serde: org.springframework.kafka.support.serializer.JsonSerde
         
   # 异步任务配置, 线程池配置
   task:
@@ -79,6 +112,8 @@ sync:
   # Kafka Topic配置
   topics:
     profile-sync: "profile-sync-events"
+    immediate-sync: "immediate-sync-events"
+    batch-sync: "batch-sync-events"
 
   # 清理配置
   cleanup:

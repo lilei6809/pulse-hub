@@ -217,3 +217,4 @@ src/main/java/com/pulsehub/{service}/
 - Service startup dependencies managed via Docker Compose health checks
 - Use `@EnableDiscoveryClient` for new services requiring service discovery
 - Environment variables configured via `.env.docker` for containerized deployments
+- 在进行代码设计时, 不要着急, 进行充分的思考, 对于你不确定的问题多使用 web search, 确保你的思路与逻辑的正确.

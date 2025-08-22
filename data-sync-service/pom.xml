@@ -47,6 +47,17 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
+        
+        <!-- Kafka Streams依赖 (事件路由器) -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-streams</artifactId>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.cloud</groupId>-->
+<!--            <artifactId>spring-cloud-stream-binder-kafka-streams</artifactId>-->
+<!--        </dependency>-->
 
         <!-- 服务发现 -->
         <dependency>

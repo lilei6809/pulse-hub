@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -115,6 +116,27 @@ public class RedisProfileData {
     }
 
     /**
+     * 创建一份本对象的深度拷贝
+     * @param source 源对象
+     * @return 深度拷贝后的新对象
+     */
+    public static RedisProfileData deepCopy(RedisProfileData source) {
+        if (source == null) {
+            return null;
+        }
+
+        // 使用LinkedHashMap确保序列化时键顺序一致
+        return  RedisProfileData.builder()
+                .profileData(new LinkedHashMap<>(source.getProfileData()))
+                .createdAt(source.getCreatedAt())
+                .lastUpdated(source.getLastUpdated())
+                .metadata(new LinkedHashMap<>(source.getMetadata()))
+                .version(source.getVersion())
+                .checksum(source.getChecksum())
+                .build();
+    }
+
+    /**
      * 简单更新数据
      * 直接更新数据并递增版本号
      * 
@@ -122,32 +144,32 @@ public class RedisProfileData {
      * @param source 更新来源标识
      * @return 更新结果对象
      */
-    public UpdateResult update(Map<String, Object> updates, String source) {
-        if (updates == null || updates.isEmpty()) {
-            log.warn("更新参数无效: updates={}", updates);
-            return UpdateResult.failed("参数无效");
-        }
-
-        try {
-            // 执行更新
-            this.profileData.putAll(updates);
-            this.lastUpdated = Instant.now();
-            
-            // 更新元数据
-            this.metadata.put("lastSource", source);
-            this.metadata.put("lastOperation", "update");
-            this.metadata.put("updateCount", getUpdateCount() + 1);
-            
-            log.debug("成功更新profile数据: 更新字段数={}, 来源={}", 
-                updates.size(), source);
-            
-            return UpdateResult.success("更新成功");
-            
-        } catch (Exception e) {
-            log.error("更新profile数据失败: source={}", source, e);
-            return UpdateResult.failed("更新异常: " + e.getMessage());
-        }
-    }
+//    public UpdateResult update(Map<String, Object> updates, String source) {
+//        if (updates == null || updates.isEmpty()) {
+//            log.warn("更新参数无效: updates={}", updates);
+//            return UpdateResult.failed("参数无效");
+//        }
+//
+//        try {
+//            // 执行更新
+//            this.profileData.putAll(updates);
+//            this.lastUpdated = Instant.now();
+//
+//            // 更新元数据
+//            this.metadata.put("lastSource", source);
+//            this.metadata.put("lastOperation", "update");
+//            this.metadata.put("updateCount", getUpdateCount() + 1);
+//
+//            log.debug("成功更新profile数据: 更新字段数={}, 来源={}",
+//                updates.size(), source);
+//
+//            return UpdateResult.success("更新成功");
+//
+//        } catch (Exception e) {
+//            log.error("更新profile数据失败: source={}", source, e);
+//            return UpdateResult.failed("更新异常: " + e.getMessage());
+//        }
+//    }
 
     /**
      * 强制更新数据（忽略版本检查）
@@ -192,11 +214,11 @@ public class RedisProfileData {
      * @param source 更新来源
      * @return 更新结果
      */
-    public UpdateResult updateField(String fieldName, Object newValue, String source) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put(fieldName, newValue);
-        return update(updates, source);
-    }
+//    public UpdateResult updateField(String fieldName, Object newValue, String source) {
+//        Map<String, Object> updates = new HashMap<>();
+//        updates.put(fieldName, newValue);
+//        return update(updates, source);
+//    }
 
     /**
      * 安全地获取profile数据的副本

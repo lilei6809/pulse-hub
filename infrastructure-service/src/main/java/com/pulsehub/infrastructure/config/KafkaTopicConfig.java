@@ -131,6 +131,46 @@ public class KafkaTopicConfig {
     }
 
     /**
+     * Immediate Sync Events Topic
+     * High-priority critical business data sync (status, permissions, vip_level)
+     * 4 partitions for balanced load distribution by userId
+     */
+    @Bean
+    public NewTopic immediateSyncEventsTopic() {
+        KafkaTopicProperties.TopicDefaults defaults = kafkaTopicProperties.getTopicDefaults();
+        return TopicBuilder.name("immediate-sync-events")
+                .partitions(kafkaTopicProperties.getPartitions().getOrDefault("immediate-sync-events", 4))
+                .replicas(defaults.getReplicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(defaults.getMinInSyncReplicas()))
+                .config(TopicConfig.RETENTION_MS_CONFIG, "43200000") // 12 hours - critical data needs fast processing
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
+                .config(TopicConfig.SEGMENT_MS_CONFIG, "10800000") // 3 hours - smaller segments for faster processing
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "snappy") // Fast compression for immediate processing
+                .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576") // 1MB
+                .build();
+    }
+
+    /**
+     * Batch Sync Events Topic  
+     * Regular behavioral data and analytics sync
+     * 8 partitions for higher throughput batch processing by userId
+     */
+    @Bean
+    public NewTopic batchSyncEventsTopic() {
+        KafkaTopicProperties.TopicDefaults defaults = kafkaTopicProperties.getTopicDefaults();
+        return TopicBuilder.name("batch-sync-events")
+                .partitions(kafkaTopicProperties.getPartitions().getOrDefault("batch-sync-events", 8))
+                .replicas(defaults.getReplicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(defaults.getMinInSyncReplicas()))
+                .config(TopicConfig.RETENTION_MS_CONFIG, "172800000") // 2 days - batch data can be processed with delay
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, "delete")
+                .config(TopicConfig.SEGMENT_MS_CONFIG, "43200000") // 12 hours
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4") // Better compression ratio for batch processing
+                .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576") // 1MB
+                .build();
+    }
+
+    /**
      * Metrics Events Topic
      */
     @Bean

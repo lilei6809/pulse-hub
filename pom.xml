@@ -20,14 +20,15 @@
         <spring-boot.version>3.3.0</spring-boot.version> <!-- Use a recent, stable version -->
         <protobuf.version>3.25.1</protobuf.version>
         <confluent.version>7.4.1</confluent.version>
-
+        <kafka-streams.version>4.0.0</kafka-streams.version>
         <surefire.plugin.version>3.1.2</surefire.plugin.version>
-
+        <spring-cloud-stream-binder-kafka-streams.version>4.3.0</spring-cloud-stream-binder-kafka-streams.version>
         <spring-cloud.version>2023.0.6</spring-cloud.version>
         <redisson.version>3.50.0</redisson.version>
         <testcontainers.version>3.5.4</testcontainers.version>
         <testcontainers-redis.version>2.2.2</testcontainers-redis.version>
         <spring-boot-starter-aop.version>3.5.3</spring-boot-starter-aop.version>
+        <postgresql.version>42.7.2</postgresql.version>
     </properties>
 
     <modules>
@@ -60,7 +61,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.2</version>
+                <version>${postgresql.version}</version>
             </dependency>
 
             <!-- Protobuf and Confluent Dependencies -->
@@ -87,6 +88,20 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-streams -->
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-streams</artifactId>
+                <version>${kafka-streams.version}</version>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-stream-binder-kafka-streams -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-stream-binder-kafka-streams</artifactId>
+                <version>${spring-cloud-stream-binder-kafka-streams.version}</version>
             </dependency>
 
             <!-- https://mvnrepository.com/artifact/org.redisson/redisson-spring-boot-starter -->
