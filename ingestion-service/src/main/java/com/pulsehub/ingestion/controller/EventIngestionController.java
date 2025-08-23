@@ -107,7 +107,12 @@ public class EventIngestionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-    
+
+    /**
+     * batch Event 不是直接的用户活动, 而是租户通过 第三方导入的数据, 所以不用设置 cookies
+     * @param batchData
+     * @return
+     */
     @PostMapping("/batch")
     public ResponseEntity<Map<String, Object>> trackBatchEvents(@RequestBody JsonNode batchData) {
         Map<String, Object> response = new HashMap<>();
