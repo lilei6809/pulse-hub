@@ -25,19 +25,26 @@ public class EventValidationService {
             result.addError("Missing required fields: messageId, timestamp, event");
             return result;
         }
+
+        boolean batch = eventData.path("batch").asBoolean();
+
+        if (!batch && eventData instanceof ObjectNode) {
+            String timestamp = eventData.path("timestamp").asText();
+            ((ObjectNode) eventData).put("lastActiveAt", timestamp);
+        }
         
         // 验证事件类型
         String type = eventData.path("event").asText();
         // type 是否合法
-//        if (!eventConfig.isValidEventType(type)) {
-//            result.setValid(false);
-//            result.addError("Invalid event type: " + type);
-//        }
+        if (!eventConfig.isValidEventType(type)) {
+            result.setValid(false);
+            result.addError("Invalid event type: " + type);
+        }
 
 
         
         // 对于 track 类型事件，验证事件名称
-        //TODO: 目前先考虑匹配 valid-track-events
+        //valid-track-events
         if (type.isEmpty()) {
             result.setValid(false);
             result.addError("Track event missing event name");
@@ -78,7 +85,8 @@ public class EventValidationService {
     private boolean hasRequiredFields(JsonNode eventData) {
         return eventData.has("eventId") &&
                eventData.has("event") &&
-               eventData.has("timestamp");
+               eventData.has("timestamp") &&
+                eventData.has("batch");
     }
     
     public static class ValidationResult {

@@ -21,6 +21,7 @@ public class EventTransformationService {
             builder.setEventId(getStringValue(eventData, "messageId", UUID.randomUUID().toString()));
             builder.setUserId(getStringValue(eventData, "userId", ""));
             builder.setAnonymousId(getStringValue(eventData, "anonymousId", ""));
+            builder.setDeviceId(getStringValue(eventData, "deviceId", ""));
 //            builder.setGroupId(getStringValue(eventData, "groupId", ""));
             
             // 事件信息
