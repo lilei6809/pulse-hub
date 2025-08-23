@@ -24,12 +24,18 @@ message UserProfileSyncEvent {
     // 基础信息
     string user_id = 1;
     SyncPriority priority = 2;  // 区分立即同步和批量同步
-    SyncType sync_type = 3;     // 区分全量和增量更新
-    int64 version = 4;          // 版本控制
-    google.protobuf.Timestamp timestamp = 5;
+//    SyncType sync_type = 3;     // 区分全量和增量更新
+
+    string anonymous_id = 3;
+    string session_id = 4;
+    string device_id = 5;
+    string event_type = 6;
+
+    int64 version = 7;          // 版本控制
+//    google.protobuf.Timestamp timestamp = 5;
     
     // 核心字段更新
-    ProfileMetadata metadata = 6;
+    ProfileMetadata metadata = 8;
     
     // 数据分区更新 - 增量同步到MongoDB (基于UserProfileDocument结构)
     map<string, google.protobuf.Any> static_profile_updates = 10;
@@ -55,6 +61,10 @@ message ProfileMetadata {
     google.protobuf.Timestamp last_active_at = 2;
     google.protobuf.Timestamp
         lastUpdated = 3;  //profile数据更新时间
+    string lastSource = 4;
+    string  source = 5;
+    string lastOperation = 6;
+    string operation = 7;
 }
 
 /**
@@ -70,7 +80,7 @@ enum SyncPriority {
  * Sync type enumeration
  * Distinguishes between full sync and incremental sync
  */
-enum SyncType {
-    FULL_SYNC = 0;        // 全量更新 - 完整用户画像同步
-    INCREMENTAL_SYNC = 1; // 增量更新 - 只同步变更字段
-}
+//enum SyncType {
+//    FULL_SYNC = 0;        // 全量更新 - 完整用户画像同步
+//    INCREMENTAL_SYNC = 1; // 增量更新 - 只同步变更字段
+//}

@@ -4,6 +4,11 @@ spring:
     username: ${POSTGRES_USER:pulsehub}
     password: ${POSTGRES_PASSWORD:pulsehub}
   kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      properties:
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
     consumer:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
       properties:

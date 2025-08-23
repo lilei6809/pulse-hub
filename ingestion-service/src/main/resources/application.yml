@@ -1,21 +1,27 @@
+
+server:
+  port: "${INGESTION_SERVICE_PORT:8083}"
+
 spring:
   application:
     name: ingestion-service
-  datasource:
-    url: jdbc:postgresql://postgres:5432/pulsehub
-    username: pulsehub
-    password: pulsehub
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+  profiles:
+    active: "${SPRING_PROFILES_ACTIVE:local}"  # 默认本地
   kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+    producer:
+      bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer
+      acks: all
+      retries: 3
+      properties:
+        schema.registry.url: http://schema-registry:8081
+        linger.ms: 5
+        batch.size: 16384
+        buffer.memory: 33554432
     consumer:
-      bootstrap-servers: kafka:29092
+      bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}"
       group-id: ingestion-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -24,8 +30,7 @@ spring:
         schema.registry.url: http://schema-registry:8081
         specific.protobuf.value.type: com.pulsehub.common.proto.UserActivityEvent
 
-server:
-  port: 8083
+
 
 application:
   kafka:
@@ -35,3 +40,41 @@ application:
 pulsehub:
   kafka:
     topic: user-activity-events
+  events:
+    # 有效的事件类型配置
+    valid-types:
+      - track      # 跟踪事件
+      - page       # 页面浏览事件
+      - screen     # 屏幕事件
+      - identify   # 用户识别事件
+      - group      # 分组事件
+      - alias      # 别名事件
+    # 有效的跟踪事件名称
+    valid-track-events:
+      - page_view
+      - button_click
+      - form_submit
+      - video_play
+      - purchase
+      - login
+      - logout
+      - search
+      - add_to_cart
+      - checkout_start
+      - report_submitted
+      - file_download
+      - link_click
+      - scroll_depth
+      - session_start
+      - session_end
+      - register
+      - preference_update
+    # 事件分类
+    event-categories:
+      user-interaction: [page_view, button_click, form_submit, link_click, scroll_depth, preference_update]
+      commerce: [purchase, add_to_cart, checkout_start]
+      media: [video_play]
+      auth: [register, login, logout]
+      search: [search]
+      session: [session_start, session_end]
+      content: [report_submitted, file_download]

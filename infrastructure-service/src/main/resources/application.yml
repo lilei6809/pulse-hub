@@ -69,7 +69,7 @@ pulsehub:
       min-insync-replicas: 2
 
 app:
-  environment: "${APP_ENVIRONMENT:dev}"
+  environment: "${APP_ENVIRONMENT:docker}"
 
 management:
   endpoints:

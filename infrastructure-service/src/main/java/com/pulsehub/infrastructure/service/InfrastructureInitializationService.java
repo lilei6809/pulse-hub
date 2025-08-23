@@ -53,8 +53,8 @@ public class InfrastructureInitializationService {
     private final RedisTemplate<String, Object> redisTemplate;  // Redis操作模板，用于验证Redis连接
     private final KafkaAdmin kafkaAdmin;  // Kafka管理员客户端，用于验证Kafka连接和话题
     
-    // 从配置文件中注入当前运行环境，默认为"dev"
-    @Value("${app.environment:dev}")
+    // 从配置文件中注入当前运行环境，默认为"local"
+    @Value("${app.environment:local}")
     private String environment;
     
     /**

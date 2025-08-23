@@ -5,17 +5,147 @@ package com.pulsehub.common.proto;
 option java_package = "com.pulsehub.common.proto";
 option java_multiple_files = true;
 
+// 主事件消息
 message UserActivityEvent {
+  // 身份识别标识
   string event_id = 1;
-  string user_id = 2;
-  string session_id = 3;
-  string event_type = 4;
-  int64 timestamp = 5;
-  string source_ip = 6;
-  string user_agent = 7;
-  string page_url = 8;
-  string product_id = 9;
-  string category_id = 10;
-  double price = 11;
-  int32 quantity = 12;
-} 
+  optional string user_id = 2;
+  optional string anonymous_id = 3;
+  optional string session_id = 4;
+  optional string device_id = 5;
+  
+  // 事件信息
+  string event = 6;  // 事件名称，如 "page_view", 后端根据 事件的优先级配置, 确认当前事件的优先级
+  optional int32 version = 7;
+  optional Priority priority = 8;
+  optional string type = 17;
+
+  // 时间戳
+  string timestamp = 9;   // 发生的事件
+  string received_at = 10;  //
+  optional string lastActiveAt = 16;
+  
+  // 上下文信息
+  optional Context context = 11;
+  
+  // 集成设置: 表示租户在其他平台是否有当前用户的数据, 如果有, 在创建 new profile 时异步访问第三方 api
+  map<string, bool> integrations = 12;
+  
+  // 事件属性（可扩展的键值对）
+  map<string, string> properties = 13;
+  map<string, double> numeric_properties = 14;
+  map<string, bool> boolean_properties = 15;
+}
+
+// 上下文信息
+message Context {
+  bool active = 1;    // 如果是通过其他方式进行的用户活动信息的导入, active 为 false, 且不更新 lastActiveAt
+  string ip = 2;
+  string locale = 3;
+  string timezone = 4;
+  string user_agent = 5;
+  
+  optional App app = 6;
+  optional Device device = 7;
+  optional Campaign campaign = 8;
+  optional Library library = 9;
+  optional Network network = 10;
+  optional Os os = 11;
+  optional Page page = 12;      // 当前的页面信息
+  optional Referrer referrer = 13;  //Dictionary of information about the way the user was
+                          // referred to the website or app, containing type, name,
+                          //    url, and link.
+  optional Screen screen = 14; //Dictionary of information about the device’s screen, containing density, height, and width.
+  optional UserAgentData user_agent_data = 15;
+}
+
+// 应用信息
+message App {
+  optional string name = 1;
+  optional string version = 2;
+  optional string build = 3;
+  optional string namespace = 4;
+}
+
+// 设备信息
+message Device {
+  optional string id = 1;
+  optional string advertising_id = 2;
+  optional bool ad_tracking_enabled = 3;
+  optional string manufacturer = 4;
+  optional string model = 5;
+  optional string name = 6;
+  optional string type = 7;
+  optional string token = 8;
+}
+
+// 营销活动信息:
+message Campaign {
+  optional string name = 1;
+  optional string source = 2;
+  optional string medium = 3;
+  optional string term = 4;
+  optional string content = 5;
+}
+
+// 库信息
+message Library {
+  optional string name = 1;
+  optional string version = 2;
+}
+
+// 网络信息
+message Network {
+  optional bool bluetooth = 1;
+  optional string carrier = 2;
+  optional bool cellular = 3;
+  optional bool wifi = 4;
+}
+
+// 操作系统信息
+message Os {
+  optional string name = 1;
+  optional string version = 2;
+}
+
+// 页面信息
+message Page {
+  optional string path = 1;
+  optional string referrer = 2;
+  optional string search = 3;
+  optional string title = 4;
+  optional string url = 5;
+}
+
+// 引荐信息
+message Referrer {
+  optional string id = 1;
+  optional string type = 2;
+}
+
+// 屏幕信息
+message Screen {
+  optional int32 width = 1;
+  optional int32 height = 2;
+  optional double density = 3;
+}
+
+// UserAgent 详细数据
+message UserAgentData {
+  repeated Brand brands = 1;
+  optional bool mobile = 2;
+  optional string platform = 3;
+}
+
+// 浏览器品牌信息
+message Brand {
+  optional string brand = 1;
+  optional string version = 2;
+}
+
+enum Priority {
+  HIGH = 0;
+  NORMAL = 1;
+  LOW = 2;
+}
+

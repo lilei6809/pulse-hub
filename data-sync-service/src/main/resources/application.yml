@@ -49,7 +49,7 @@ spring:
       retries: 0  # 禁用Kafka自带重试，使用@Retryable
       acks: 1
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
     consumer:
       immediate-sync-group:
         group-id: immediate-sync-group
@@ -58,7 +58,10 @@ spring:
         fetch-min-size: 1
         concurrency: 2             # 2个并发消费者
         key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+        value-deserializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
+        properties:
+          schema.registry.url: http://schema-registry:8081
+          specific.protobuf.value.type: com.pulsehub.common.proto.UserProfileSyncEvent
       batch-sync-group:
         group-id: batch-sync-group
         auto-offset-reset: earliest
@@ -66,7 +69,10 @@ spring:
         fetch-min-size: 1024
         concurrency: 5             # 5个并发消费者
         key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+        value-deserializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
+        properties:
+          schema.registry.url: http://schema-registry:8081
+          specific.protobuf.value.type: com.pulsehub.common.proto.UserProfileSyncEvent
       properties:
         spring.json.trusted.packages: "com.pulsehub.*"
     # Kafka Streams 事件路由器配置
@@ -111,9 +117,9 @@ sync:
 
   # Kafka Topic配置
   topics:
-    profile-sync: "profile-sync-events"
-    immediate-sync: "immediate-sync-events"
-    batch-sync: "batch-sync-events"
+    profile-sync: "user_profile_sync_event"
+    immediate-sync: "profile_immediate_sync_event"
+    batch-sync: "profile_batch_sync_event"
 
   # 清理配置
   cleanup:

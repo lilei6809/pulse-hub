@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -429,7 +430,7 @@ public class RedisUserProfileOperations {
 
         // 启动 RTransaction 事务
         RTransaction transaction = redissonClient.createTransaction(options);
-        int successCount = 0;
+        AtomicInteger successCount = new AtomicInteger(0);
 
         try {
 
@@ -459,7 +460,7 @@ public class RedisUserProfileOperations {
                 // 在事务内设置新值
                 bucket.set(existing);
 
-                successCount++;
+                successCount.incrementAndGet();
             }
 
             // 第二阶段：提交事务
@@ -470,10 +471,10 @@ public class RedisUserProfileOperations {
                     totalCount,  successCount);
 
             return BatchProfileOperationResult.builder()
-                    .success(successCount == totalCount) // 只有全部成功才返回true
-                    .successCount(successCount)
+                    .success(successCount.get() > 0) //
+                    .successCount(successCount.get())
                     .totalCount(totalCount)
-                    .message(String.format("批量更新完成: 成功 %d/%d", successCount, totalCount))
+                    .message(String.format("批量更新完成: 成功 %d/%d", successCount.get(), totalCount))
                     .build();
 
         } catch (Exception e) {
